@@ -156,7 +156,7 @@ int main(int argc, char * argv[]) {
     double caseImport = atof(argv[3]); //164697 30  //164757 40  //164577 10
     size_t caseNo = caseImport;
     //size_t caseNo = 4; //164637 20 same
-
+    
     size_t year_case; //1 is 2020, 2 or else is 2018
     if (yearImport_i == 2020)
     {
@@ -169,7 +169,7 @@ int main(int argc, char * argv[]) {
     
     //Provide SIM PARAMETERS
     size_t melt_step, break_step;
-    double IlimitMaxDiam, IlimitMinDiam, Vert_q, Q_atmos;
+    double IlimitMaxDiam, IlimitMinDiam, Vert_q, Q_atmos, mixed_layerh_in, kappa_in;
 
     //Import Sim Parameters Text File
     char tempfname00[300];
@@ -217,7 +217,8 @@ int main(int argc, char * argv[]) {
     std::string file_inputs = tempfname00;
     
     //Run Input Function
-    readSimInputFile(file_inputs, caseNo, melt_step, break_step, IlimitMaxDiam, IlimitMinDiam, Vert_q, Q_atmos);
+    //readSimInputFile(file_inputs, caseNo, melt_step, break_step, IlimitMaxDiam, IlimitMinDiam, Vert_q, Q_atmos);   
+    readSimInputFileMore(file_inputs, caseNo, melt_step, break_step, IlimitMaxDiam, IlimitMinDiam, Vert_q, Q_atmos, mixed_layerh_in, kappa_in);
 
     const size_t START_TEMP = melt_step; //Can also be used as Step if melt Step is Constant
     double limitMaxDiam = IlimitMaxDiam;
@@ -504,6 +505,7 @@ int main(int argc, char * argv[]) {
     char pointsoutFile[300];
     char pointsoutLSFile[300];
     char normAreaFile[300];
+    char lossAreaFile[300];
     char normConcFile[300];
     char fluxAreaFile[300];
     char numbergoutFile[300];
@@ -541,12 +543,18 @@ int main(int argc, char * argv[]) {
         //year_subfolder = "SeaIce2018Prob_"; //PROB CHANGE ON
         //year_subfolder = "SeaIce2018h_";
     }
+    
+    //Seed for multiple cases!!!
+    bool seed_on = true;
 
 
     //Extension for ensemble runs //Seed Remove or add 
-    //double seedImport = atof(argv[5]);
-    //size_t seedNo = seedImport;
-    //string seedString = (std::to_string(seedNo));    
+    double seedImport; size_t seedNo; string seedString;
+    if (seed_on == true){
+        seedImport = atof(argv[5]);
+        seedNo = seedImport;
+        seedString = (std::to_string(seedNo));  
+    }
     
     if (create_folders)
     {
@@ -555,19 +563,22 @@ int main(int argc, char * argv[]) {
         
         string caseString = (std::to_string(caseNo));
         
-        // //Seed Remove
-        // folderLoc = "./Output/"+year_subfolder+caseString+"_"+seedString+"/";
-        // folderLoc2 = "./Output/"+year_subfolder+caseString+"_"+seedString+"/ContactInfo/";
-        // folderLoc3 = "./Output/"+year_subfolder+caseString+"_"+seedString+"/GSD/";
-        // folderLoc4 = "./Output/"+year_subfolder+caseString+"_"+seedString+"/Damage/";
-        // folderLoc5 = "./Output/"+year_subfolder+caseString+"_"+seedString+"/Vertical_Thickness/";
-        
+        //Seed
+        if (seed_on == true){
+            folderLoc = "./Output/"+year_subfolder+caseString+"_"+seedString+"/";
+            folderLoc2 = "./Output/"+year_subfolder+caseString+"_"+seedString+"/ContactInfo/";
+            folderLoc3 = "./Output/"+year_subfolder+caseString+"_"+seedString+"/GSD/";
+            folderLoc4 = "./Output/"+year_subfolder+caseString+"_"+seedString+"/Damage/";
+            folderLoc5 = "./Output/"+year_subfolder+caseString+"_"+seedString+"/Vertical_Thickness/";
+        }
+        else{
         //No seed
-        folderLoc = "./Output/"+year_subfolder+caseString+"/";
-        folderLoc2 = "./Output/"+year_subfolder+caseString+"/ContactInfo/";
-        folderLoc3 = "./Output/"+year_subfolder+caseString+"/GSD/";
-        folderLoc4 = "./Output/"+year_subfolder+caseString+"/Damage/";
-        folderLoc5 = "./Output/"+year_subfolder+caseString+"/Vertical_Thickness/";
+            folderLoc = "./Output/"+year_subfolder+caseString+"/";
+            folderLoc2 = "./Output/"+year_subfolder+caseString+"/ContactInfo/";
+            folderLoc3 = "./Output/"+year_subfolder+caseString+"/GSD/";
+            folderLoc4 = "./Output/"+year_subfolder+caseString+"/Damage/";
+            folderLoc5 = "./Output/"+year_subfolder+caseString+"/Vertical_Thickness/";
+        }
 
         //Turn off when necessary
         mkdir(folderLoc.c_str(), 0700);
@@ -601,6 +612,7 @@ int main(int argc, char * argv[]) {
     sprintf(pointsoutFile,(folderLoc+"pointsout"+variant+".dat").c_str());
     sprintf(pointsoutLSFile,(folderLoc+"pointsoutLS"+variant+".dat").c_str());
     sprintf(normAreaFile,(folderLoc+"normarea"+variant+".dat").c_str());
+    sprintf(lossAreaFile,(folderLoc+"loss_area"+variant+".dat").c_str());
     sprintf(normConcFile,(folderLoc+"normConc"+variant+".dat").c_str());
     sprintf(fluxAreaFile,(folderLoc+"fluxarea"+variant+".dat").c_str());
     sprintf(numbergoutFile,(folderLoc+"numberg"+variant+".dat").c_str());
@@ -640,6 +652,7 @@ int main(int argc, char * argv[]) {
     FILE * pointsout       = fopen(pointsoutFile,"w");
     FILE * pointsoutLS       = fopen(pointsoutLSFile,"w");
     FILE * normArea       = fopen(normAreaFile,"w");
+    FILE * lossArea       = fopen(lossAreaFile,"w");
     FILE * normConc     = fopen(normConcFile,"w");
     FILE * fluxArea       = fopen(fluxAreaFile,"w");
     FILE * numbergout       = fopen(numbergoutFile,"w");
@@ -735,6 +748,22 @@ int main(int argc, char * argv[]) {
     vector<double> oceanTemp(x_cells * y_cells); //Global Ocean Temp Grid
     vector<double> oceanTemp0(x_cells * y_cells);
     vector<double> alpha_ice_inter(x_cells * y_cells); //Proportion of Ice and Water (1 is only ice, 0 is only ocean, fraction in between)
+    
+    //Initialize flux vector for reference and other useful variables
+    vector<double> netFlux(x_cells * y_cells);
+    vector<double> netFlux2(x_cells * y_cells);
+    vector<double> latFlux(x_cells * y_cells);
+    vector<double> vertFlux(x_cells * y_cells);
+    vector<double> lvRatio(x_cells * y_cells);
+    double concf_free = initial_fine / (1-initial_coarse);
+    double Tf = -1.8; //Melting temperature of sea ice
+    double Qatm0 = QATM; //310 W/m2
+    double Aatm0 = 70.0; // 70   W/m2 //55.6 W/m2 ??
+    double Batm0 = 10.0; // 10   W/(m2*K)
+    double a_o0 = 0.3; //Albedo of open ocean
+    double a_i0 = 0.7; //Albedo of sea ice
+    //Flux vector addition for calculation
+    
     bool ice_contact; //Indicator for ice contact with ocean
     for (size_t i = 0; i < y_cells; i++) {
         for (size_t j = 0; j < x_cells; j++) {
@@ -782,6 +811,22 @@ int main(int argc, char * argv[]) {
                 }
                 
             }
+                                                                        //Net flux coarse covered                                                                    //Net flux uncovered by coarse, mixing fines and ocean influence           
+            netFlux[j+i*x_cells] = alpha_ice_inter[j+i*x_cells] * ( 1.0*( Qatm0*(1-a_i0) - (Aatm0 + Batm0*Tf) ) + 0.0 )  +  (1 - alpha_ice_inter[j+i*x_cells]) * ( concf_free*( Qatm0*(1-a_i0) - (Aatm0 + Batm0*Tf) ) + (1-concf_free) * ( Qatm0*(1-a_o0) - (Aatm0 + Batm0*oceanTemp[j+i*x_cells]) ) );
+            netFlux2[j+i*x_cells] = alpha_ice_inter[j+i*x_cells] * ( 0.0 )  +  (1 - alpha_ice_inter[j+i*x_cells]) * ( concf_free*( Qatm0*(1-a_i0) - (Aatm0 + Batm0*Tf) ) + (1-concf_free) * ( Qatm0*(1-a_o0) - (Aatm0 + Batm0*oceanTemp[j+i*x_cells]) ) );
+
+            //No edge cells for lateral flux of course (simplify doing PBC)
+            if ( (i > 0 && i < y_cells - 1) && (j > 0 && j < x_cells - 1) ){
+                //Track lateral flux
+                latFlux[j+i*x_cells] = 1030.0*3991.0*mixed_layerh_in*1e-6*(kappa_in)* (oceanTemp[j+(i+1)*x_cells]+oceanTemp[(j+1)+i*x_cells]+oceanTemp[j+(i-1)*x_cells]+oceanTemp[(j-1)+i*x_cells]-4*oceanTemp[j+i*x_cells]);
+                vertFlux[j+i*x_cells] = ( VERTQ*(oceanTemp[j+i*x_cells] - Tf) );
+                if (vertFlux[j+i*x_cells] == 0){
+                    lvRatio[j+i*x_cells] = 1111; //To show no vertical rate (very unlikely, avoid division by zero)
+                }
+                else{
+                    lvRatio[j+i*x_cells] = latFlux[j+i*x_cells] /  vertFlux[j+i*x_cells];
+                }
+            }
 
             double vortex_vel = 1000.00 * 0.7; //1000 //FACTOR OF INITIAL March 1, 2023  //0.9-1.0 ok for stable thickness
             //VORTEX-like field in 4 symmetric parts around offset
@@ -826,7 +871,7 @@ int main(int argc, char * argv[]) {
     size_t stepup = 0;  //-->
 
     double slopedir = 0.01; //For sinusoidal variation over time if needed. Just for initialization only
-    double flowforceRef0 = 4.0e11;  //SCALE ?????????
+    double flowforceRef0 = 4.0e9;  //SCALE ????????? //Initial: 4.0e11
     //double flowforceRef0 = 2.7e12;   //FORMER: 4.0e11; //NEW TRY 27.0E12 from 86400 s * 5 day * contact_dt * F = 8 km/day * 112,000 (domain area) km2 * ConcC * 0.10 (frac of largest floe) * Ave thick in km * rho ice in kg/km3 so F = 27.0e12 approx. Try and see. 
     double flowforceRef = flowforceRef0 * floeVel[0](1)/ave_floeVel ; //Ref.
     double flowforcemin = 1.0e11; //Ref. for velocity of MODIS
@@ -918,14 +963,18 @@ int main(int argc, char * argv[]) {
     
     //Print Parameters
     cout << "Initial Parameters" << endl;
-    cout << "Melt Step: " << START_TEMP << " LimitMaxD: " << limitMaxDiam << " LimitMinD: " << limitMinDiam << " Break Step: " << BREAK_STEP << " qVert: " << VERTQ << " Satm: " << QATM << endl;  //No Seed
-    //cout << "Melt Step: " << START_TEMP << " LimitMaxD: " << limitMaxDiam << " LimitMinD: " << limitMinDiam << " Break Step: " << BREAK_STEP << " Seed: " << seedNo << endl;  //Seed Remove
-    
+    if (seed_on == false){
+        cout << "Melt Step: " << START_TEMP << " LimitMaxD: " << limitMaxDiam << " LimitMinD: " << limitMinDiam << " Break Step: " << BREAK_STEP << " qVert: " << VERTQ << " Satm: " << QATM <<  " Hlayer: " << mixed_layerh_in <<  " Kappa: " << kappa_in << endl;  //No Seed
+    }
+    else{
+        cout << "Melt Step: " << START_TEMP << " LimitMaxD: " << limitMaxDiam << " LimitMinD: " << limitMinDiam << " Break Step: " << BREAK_STEP << " qVert: " << VERTQ << " Satm: " << QATM <<  " Hlayer: " << mixed_layerh_in <<  " Kappa: " << kappa_in << " Seed: " << seedNo << endl;  //Seed
+    }
+
     double GlobalConc = initial_fine + initial_coarse;
     double GlobalFine = initial_fine;
     
     //Define vector of Vector2d that contains: Conc(Proportional to Area) and Thickness
-    size_t fine_bins = 100;
+    size_t fine_bins = 1; //Real 100 TEMPo
     vector<Vector4d> Fine_Grains(fine_bins);
     vector<Vector2d> Fine_Velocities(fine_bins);
     //Use Initial fine to distribute each 1% of GlobalFine and assign a Gaussian Thickness around 1m
@@ -953,8 +1002,8 @@ int main(int argc, char * argv[]) {
     
     for (size_t indf = 0; indf < fine_bins; indf++)
     {
-        Fine_Grains[indf](0) = (GlobalFine*Domain)/double(fine_bins);
-        Fine_Grains[indf](1) = max(distribution(generator) , min_thick); //Random thickness
+        Fine_Grains[indf](0) = 0.0 * (GlobalFine*Domain)/double(fine_bins); //TEMPo Remove 0.0 *
+        Fine_Grains[indf](1) = 0.0 * max(distribution(generator) , min_thick); //Random thickness //TEMPo Remove thickness to remove thin floes 0.0 *
         Fine_Grains[indf](2) = max(distribution_posx(generator_pos) , min_pos); //Random xpos
         Fine_Grains[indf](3) = max(distribution_posy(generator_pos) , min_pos); //Random ypos
         
@@ -993,19 +1042,21 @@ int main(int argc, char * argv[]) {
     // }    
     
     //December 20, 2022 MODIF (Temporal)
-    double Khor = 20.0; //OFF for qv   // og 400 //Horizontal heat coff. in water //100 //Range: 100-1000 m2/s  (1 m2/s actually) (apply 1e-6 km2/s later)
+    //double Khor = 20.0; //OFF for qv   // og 400 //Horizontal heat coff. in water //100 //Range: 100-1000 m2/s  (1 m2/s actually) (apply 1e-6 km2/s later)
+    double Khor = kappa_in;
     //double Khor = Vert_q; //ON for kappa
     
     double k_adjust = cell_sizex * cell_sizey * 1e-6; //given that cell size is in km and but all units in heat equation are in meters, for kHor also in metric units
     double Tice = -1.8; //Melting temperature of sea ice
     double Qatm = QATM; //450 //490 // 200 //210 before fine heat removal try  W/m2
-    double Aatm = 70.0; // 70   W/m2
-    double Batm = 10.0; // 10   W/(m2*K)
+    double Aatm = 36.6; // 70   W/m2          Afit=36.6 W/m2 and slope Bfit=4.8 W/m2/C versus 38 and 0
+    double Batm = 4.8; // 10   W/(m2*K) 
 
     //Other constants
     double rho_ocean = 1030.00; //kg/m3
     double cLf = 3991.00; //Prior 3000 //J/(kg * K) //CHECK???
-    double H_layer = 25.00; //Layer of mixing 20-30 meters
+    //double H_layer = 25.00; //Layer of mixing 20-30 meters
+    double H_layer = mixed_layerh_in;
 
     //Albedo terms
     double alpha_ice =  0.8; //Related to albedo (0.6-0.8)
@@ -1096,6 +1147,10 @@ int main(int argc, char * argv[]) {
     vector<size_t> NGMelt(bin_size + 1); //Number of floes gained per bin due to melt across snapshot
     vector<size_t> NGBreak(bin_size + 1); //Number of floes gained per bin due to break across snapshot
     
+    //Lateral rate by bin
+    vector<double> LatRate(bin_size + 1); 
+    vector<double> LatRate_step(bin_size + 1); 
+    
     //Initialize global values
     for (size_t i = 0; i < MeltBin.size(); i++)
     {
@@ -1107,6 +1162,8 @@ int main(int argc, char * argv[]) {
         NLBreak[i] = 0;
         NGMelt[i] = 0;
         NGBreak[i] = 0;
+        LatRate[i] = 0.0;
+        LatRate_step[i] = 0.0;
     }
     
     //For fine variation
@@ -1134,9 +1191,14 @@ int main(int argc, char * argv[]) {
     //Aug 18,2022 Change
     //BEGIN
     //Initialize mass loss variables WILL CALCULATE JUST BEFORE PRINT
-    double tmass, tmasscoarse, tmassA, tmasscoarseA, tmassfines, loss_mcl, loss_mcv, loss_mcv_solar, loss_mcv_ocean, gain_fines, loss_fines; // No need for init. (most)
+    double tmass, tmasscoarse, tmassA, tmasscoarseA, tmassfines, loss_mcl, loss_mcv, loss_mcv_solar, loss_mcv_ocean, gain_fines, loss_fines, MLAT, MBASAL; // No need for init. (most)
     loss_mcl = 0.0; loss_mcv = 0.0; gain_fines = 0.0; loss_fines = 0.0; //Only these do
-    loss_mcv_solar = 0.0; loss_mcv_ocean = 0.0;
+    loss_mcv_solar = 0.0; loss_mcv_ocean = 0.0; MLAT = 0.0; MBASAL = 0.0;
+    
+    //Initialize area loss variables
+     double area_loss_bkg, area_loss_basal, area_loss_lat, area_loss_lat2, ave_delta_r, ave_delta_r_rate, ave_delta_r_rate_step;
+     area_loss_bkg = 0.0; area_loss_basal = 0.0; area_loss_lat = 0.0; area_loss_lat2 = 0.0; ave_delta_r = 0.0; ave_delta_r_rate = 0.0; ave_delta_r_rate_step = 0.0;
+     double prev_coarse_area = initial_coarse*Domain;
     
     //Thickness snapshots choice
     size_t snp1 = nT * 0.15;
@@ -1158,6 +1220,7 @@ int main(int argc, char * argv[]) {
         {
             MeltBin[i] = 0.0;
             BreakBin[i] = 0.0;
+            //LatRate[i] = 0.0;
         }
         
         //Adjust periodic movement
@@ -1181,7 +1244,7 @@ int main(int argc, char * argv[]) {
 
         if(change_switch == true){
             //Change angle
-            //Start seed
+            //Start random number
             srand (time(NULL));
             //Define random in radians (UNIF DIST)
             double ang_line = rand() % 1257; //From -2pi to 2pi              
@@ -1200,7 +1263,7 @@ int main(int argc, char * argv[]) {
         
         //Constant velocity based on field data (all floes move the same)
         world.changeFlowAngle(floeVel[vel_index](2));  //In radians
-        double flowforce = 1.000 * flowforceRef0 *  floeVel[vel_index](1) / ave_floeVel;  //Multiply by zero to make floes suspended in a STATIC ocean
+        double flowforce = flowforceRef0 *  floeVel[vel_index](1) / ave_floeVel;  //Multiply by zero to make floes suspended in a STATIC ocean  //1.00 to move
       	world.changeFlowForce( flowforce ); //Magnitude
       	
       	//Update fluid grid (Jan 9, 2023) //Scale initial vortex depending on field data
@@ -1241,21 +1304,27 @@ int main(int argc, char * argv[]) {
                 double outwaterTemp = -0.4; //Generic value for constant
                 if (caseNo != 1077){ //For now avoid melt for fracture experiments            
                     cout << "Melt step: " << step << endl;
-                    world.TempState(MeltBin, Diameters, Out_temperature[out_Tcount](1), limitMaxDiam, limitMinDiam, dstep, qvert, Khor, alpha_ice, Qatm, Aatm, Batm, Fine_Grains, a_i, a_x, T_fave, T_xave, loss_mcv, loss_fines, NLMelt, NLBreak, NGMelt, NGBreak, loss_mcv_solar, loss_mcv_ocean);  
+                    world.TempState(MeltBin, Diameters, Out_temperature[out_Tcount](1), limitMaxDiam, limitMinDiam, dstep, qvert, Khor, alpha_ice, Qatm, Aatm, Batm, Fine_Grains, a_i, a_x, T_fave, T_xave, loss_mcv, loss_fines, NLMelt, NLBreak, NGMelt, NGBreak, loss_mcv_solar, loss_mcv_ocean, area_loss_basal, area_loss_lat, ave_delta_r, LatRate, MLAT, MBASAL);  
                     //world.TempState(MeltBin, Diameters, Out_temperature[out_Tcount](1), limitMaxDiam, limitMinDiam, dstep, qvert, Khor, alpha_ice, Qatm, Aatm, Batm, Fine_Grains, a_i, a_x, T_fave, T_xave);   //Change Aug 22, 2022
                     //world.TempState(MeltBin, Diameters, outwaterTemp, limitMaxDiam, limitMinDiam, dstep, qvert, Khor, alpha_ice, Qatm, Aatm, Batm, Fine_Grains);
+                    
                 }
                 else
                 {
                     //qvert = 0.000;
                     cout << "Melt step: " << step << endl;
-                    world.TempState(MeltBin, Diameters, Out_temperature[out_Tcount](1), limitMaxDiam, limitMinDiam, dstep, qvert, Khor, alpha_ice, Qatm, Aatm, Batm, Fine_Grains, a_i, a_x, T_fave, T_xave, loss_mcv, loss_fines, NLMelt, NLBreak, NGMelt, NGBreak, loss_mcv_solar, loss_mcv_ocean);  
+                    world.TempState(MeltBin, Diameters, Out_temperature[out_Tcount](1), limitMaxDiam, limitMinDiam, dstep, qvert, Khor, alpha_ice, Qatm, Aatm, Batm, Fine_Grains, a_i, a_x, T_fave, T_xave, loss_mcv, loss_fines, NLMelt, NLBreak, NGMelt, NGBreak, loss_mcv_solar, loss_mcv_ocean, area_loss_basal, area_loss_lat, ave_delta_r, LatRate, MLAT, MBASAL);  
                 }
             }   
-
+            
+            //Get lateral rate
+            //ave_delta_r_rate = ave_delta_r/nTemp; //Get rate average radial reduction for this process for all floes divided by nTemp
+            ave_delta_r_rate = ave_delta_r;
+            ave_delta_r_rate_step += ave_delta_r_rate;
+        
             if (step % nTemp == 0 && step > 1){   
                 cout << "Melt Fully step: " << step << endl;
-                world.Melty(MeltBin, Diameters, limitMinDiam, Fine_Grains, Fine_Velocities, loss_mcl, loss_mcv, gain_fines, NLMelt, NLBreak, NGMelt, NGBreak, loss_mcv_solar, loss_mcv_ocean); //Change Aug 22, 2022
+                world.Melty(MeltBin, Diameters, limitMinDiam, Fine_Grains, Fine_Velocities, loss_mcl, loss_mcv, gain_fines, NLMelt, NLBreak, NGMelt, NGBreak, loss_mcv_solar, loss_mcv_ocean, area_loss_bkg); //Change Aug 22, 2022
                 //world.Melty(MeltBin, Diameters, limitMinDiam, Fine_Grains, Fine_Velocities);
                 world.FineMelty(Fine_Grains, Fine_Velocities, loss_fines, NLMelt, NLBreak, NGMelt, NGBreak);
                 //world.FineMelty(Fine_Grains, Fine_Velocities);  //Change Aug 22, 2022
@@ -1514,13 +1583,34 @@ int main(int argc, char * argv[]) {
                     else
                     {
                         //PRIOR EXPRESSION: //oceanTemp[j+i*x_cells] = oceanTemp0[j+i*x_cells]+dstep*k_adjust*(Khor)*(oceanTemp0[j+(i+1)*x_cells]+oceanTemp0[(j+1)+i*x_cells]+oceanTemp0[j+(i-1)*x_cells]+oceanTemp0[(j-1)+i*x_cells]-4*oceanTemp0[j+i*x_cells]) + (dstep/flux_control)*( qvertOc*alpha_ice_inter[j+i*x_cells]*(Tice-oceanTemp0[j+i*x_cells]) + (1 - alpha_ice_inter[j+i*x_cells])*(Qatm*(1-alpha_ocean)-(Aatm+Batm*oceanTemp0[j+i*x_cells])) );  //Add fine energy exchange (cooling as well) + dt*(Af/totalArea)*qvert*(Tfreeze-Tocean)  //Try later:  - meltV*(_grainTemp2D0.getGridValue2(ii,jj)-meltTemp);
-                        oceanTemp[j+i*x_cells] = oceanTemp0[j+i*x_cells] + dstep*k_adjust*(Khor) * (oceanTemp0[j+(i+1)*x_cells]+oceanTemp0[(j+1)+i*x_cells]+oceanTemp0[j+(i-1)*x_cells]+oceanTemp0[(j-1)+i*x_cells]-4*oceanTemp0[j+i*x_cells]) + (dstep/flux_control) * alpha_ice_inter[j+i*x_cells] * ( - qvert*(oceanTemp0[j+i*x_cells] - Tice) ) + (dstep/flux_control) * (1-alpha_ice_inter[j+i*x_cells]) * ( Qatm*(1-a_x) - (Aatm + Batm*T_x) - qvert*( T_fave - Tice) );          //Combined expression using alpha for Coarse and 1 - alpha for fine components
+                        
+                        //MAIN EXPRESSION
+                        //oceanTemp[j+i*x_cells] = oceanTemp0[j+i*x_cells] + dstep*k_adjust*(Khor) * (oceanTemp0[j+(i+1)*x_cells]+oceanTemp0[(j+1)+i*x_cells]+oceanTemp0[j+(i-1)*x_cells]+oceanTemp0[(j-1)+i*x_cells]-4*oceanTemp0[j+i*x_cells]) + (dstep/flux_control) * alpha_ice_inter[j+i*x_cells] * ( - qvert*(oceanTemp0[j+i*x_cells] - Tice) ) + (dstep/flux_control) * (1-alpha_ice_inter[j+i*x_cells]) * ( Qatm*(1-a_x) - (Aatm + Batm*T_x) - qvert*( T_fave - Tice) );          //Combined expression using alpha for Coarse and 1 - alpha for fine components
                                                     //Prior Step                //Denominator and Khor                              //Laplacian Term                                                                                                           //Denom                //Coarse Cell Switch      //Coarse Cell Expression                                                           //Denom                  //Fine Cell Switch               //Fine Cell Expression
+                        //PROPOSED EXPRESSION
+                        oceanTemp[j+i*x_cells] = oceanTemp0[j+i*x_cells] + dstep*k_adjust*(Khor) * (oceanTemp0[j+(i+1)*x_cells]+oceanTemp0[(j+1)+i*x_cells]+oceanTemp0[j+(i-1)*x_cells]+oceanTemp0[(j-1)+i*x_cells]-4*oceanTemp0[j+i*x_cells]) + (dstep/flux_control) * alpha_ice_inter[j+i*x_cells] * ( - qvert*(oceanTemp0[j+i*x_cells] - Tice) ) + (dstep/flux_control) * (1-alpha_ice_inter[j+i*x_cells]) * ( Qatm*(1-a_o)*(1-c_f) - (1-c_f)*(Aatm + Batm*oceanTemp0[j+i*x_cells]) - qvert*c_f*(T_fave - Tice) );          //Combined expression using alpha for Coarse and 1 - alpha for fine components
+                        //If relevant, apply for boundary cells too.
+                        
+                        //Track lateral flux
+                        latFlux[j+i*x_cells] = flux_control*k_adjust*(Khor)* (oceanTemp0[j+(i+1)*x_cells]+oceanTemp0[(j+1)+i*x_cells]+oceanTemp0[j+(i-1)*x_cells]+oceanTemp0[(j-1)+i*x_cells]-4*oceanTemp0[j+i*x_cells]);
+                        vertFlux[j+i*x_cells] = ( qvert*(oceanTemp0[j+i*x_cells] - Tice) );
+                        if (vertFlux[j+i*x_cells] == 0){
+                            lvRatio[j+i*x_cells] = 1111; //To show no vertical rate (very unlikely, avoid division by zero)
+                        }
+                        else{
+                            lvRatio[j+i*x_cells] = latFlux[j+i*x_cells] /  vertFlux[j+i*x_cells];
+                        }
+                        
                     }
+                    
+                    //Update net fluxes
+                    netFlux[j+i*x_cells]  = alpha_ice_inter[j+i*x_cells] * ( 1.0*( Qatm*(1-a_i) - (Aatm + Batm*Tice) ) + 0.0  )  +  (1 - alpha_ice_inter[j+i*x_cells]) * ( c_f*( Qatm*(1-a_i) - (Aatm + Batm*Tice) ) + ( 1-c_f ) * ( Qatm*(1-a_o) - (Aatm + Batm*oceanTemp[j+i*x_cells]) ) );
+                    netFlux2[j+i*x_cells] = alpha_ice_inter[j+i*x_cells] * (              0.0                                 )  +  (1 - alpha_ice_inter[j+i*x_cells]) * ( c_f*( Qatm*(1-a_i) - (Aatm + Batm*Tice) ) + ( 1-c_f ) * ( Qatm*(1-a_o) - (Aatm + Batm*oceanTemp[j+i*x_cells]) ) );
+                    
                 }
             }
             
-            //world.changeoceanTemp(oceanTemp); //CHECK THIS UPDATE!!! APRIL 26, 2023!!!!  //Only needed for very precise thickness variations
+            //world.changeoceanTemp(oceanTemp); //CHECK THIS UPDATE!!! APRIL 26, 2023!!!!  //Only needed for very precise thickness variations //Compare A and B, 1826/1827 vs 1828/1829
             //Temperature is unaffected
             //Coarse Concentration results are very similar and error is very close as well
             //Fine Concentration results are the same
@@ -1535,6 +1625,11 @@ int main(int argc, char * argv[]) {
             GMeltBin[bi] += MeltBin[bi];
             GBreakBin[bi] += BreakBin[bi];
         }
+        
+        // for (size_t bi = 0; bi < MeltBin.size(); bi++)
+        // {
+        //     LatRate_step[bi] += LatRate[bi];
+        // }
 
         //Calculate Total area and Exposed Area
         double TotIce = 0.0;
@@ -1623,20 +1718,38 @@ int main(int argc, char * argv[]) {
             initialAveThick = thick_tot;
 
             //Average Global Temperature in Domain
+            double aveFlux0 = 0.0;
+            double aveFlux20 = 0.0;
+            double avelatFlux0 = 0.0;
+            double avevertFlux0 = 0.0;
+            double avelvRatio0 = 0.0;
             TaveGlobal = 0.0;
             for (size_t i = 0; i < y_cells; i++) {
                 for (size_t j = 0; j < x_cells; j++) {
                     TaveGlobal += oceanTemp[j+i*x_cells];
+                    aveFlux0  += netFlux[j+i*x_cells];
+                    aveFlux20 += netFlux2[j+i*x_cells];
+                    //Only exists at center cells, no borders
+                    if ( (i > 0 && i < y_cells - 1) && (j > 0 && j < x_cells - 1) ){
+                        avelatFlux0 += latFlux[j+i*x_cells];
+                        avevertFlux0 += vertFlux[j+i*x_cells];
+                        avelvRatio0 +=  lvRatio[j+i*x_cells];
+                    }
                 }
             }
+            aveFlux0 /= (x_cells*y_cells);
+            aveFlux20 /= (x_cells*y_cells);
+            avelatFlux0 /= ((x_cells-2)*(y_cells-2));
+            avevertFlux0 /= ((x_cells-2)*(y_cells-2));
+            avelvRatio0 /= ((x_cells-2)*(y_cells-2));
             TaveGlobal /= (x_cells*y_cells);
-            
             
 
             //fprintf(normConc,  "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f\n", 0.000, normalArea, concentration, max((TotIce / Domain), 0.000), (max(GlobalFine,0.000)), SurfArea, thick_tot, TaveGlobal, thick_coarse_ave, thick_fine_ave);
-            fprintf(normConc,  "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f\n", 0.000, normalArea, initial_coarse + initial_fine, initial_coarse, initial_fine, SurfArea, thick_tot, TaveGlobal, thick_coarse_ave, thick_fine_ave); //Just for initial data
+            fprintf(normConc,  "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f\n", 0.000, normalArea, initial_coarse + initial_fine, initial_coarse, initial_fine, SurfArea, thick_tot, TaveGlobal, thick_coarse_ave, thick_fine_ave, aveFlux0, aveFlux20, avelatFlux0, avevertFlux0, avelvRatio0); //Just for initial data
             fprintf(normArea,  "%4.8f %4.8f %4.8f\n", 0.000, normalArea, concentration);
             fprintf(fluxArea,  "%4.8f %4.8f\n", 0.000, fluxAccArea);
+            fprintf(lossArea,  "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f\n", Domain, initial_coarse*Domain, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0); 
             cout << "Normarea= " << normalArea << " time= " << 0 << endl;
             cout << "Fluxarea= " << fluxAccArea << " time= " << 0  << endl;
             cout << "Concentration= " << concentration << " time= " << 0  << endl;
@@ -1764,13 +1877,34 @@ int main(int argc, char * argv[]) {
                 SurfArea = prevSurfArea;
             }
 
+            //Average Surface Flux
+            double aveFlux, aveFlux2;
+            aveFlux = 0.0;
+            aveFlux2 = 0.0;
+            double avelatFlux = 0.0;
+            double avevertFlux = 0.0;
+            double avelvRatio = 0.0;
+            
             //Average Global Temperature in Domain
             TaveGlobal = 0.0;
             for (size_t i = 0; i < y_cells; i++) {
                 for (size_t j = 0; j < x_cells; j++) {
                     TaveGlobal += oceanTemp[j+i*x_cells];
+                    aveFlux += netFlux[j+i*x_cells];
+                    aveFlux2 += netFlux2[j+i*x_cells];
+                    //Only exists at center cells, no borders
+                    if ( (i > 0 && i < y_cells - 1) && (j > 0 && j < x_cells - 1) ){
+                        avelatFlux += latFlux[j+i*x_cells];
+                        avevertFlux += vertFlux[j+i*x_cells];
+                        avelvRatio +=  lvRatio[j+i*x_cells];
+                    }
                 }
             }
+            aveFlux /= (x_cells*y_cells);
+            aveFlux2 /= (x_cells*y_cells);
+            avelatFlux /= ((x_cells-2)*(y_cells-2));
+            avevertFlux /= ((x_cells-2)*(y_cells-2));
+            avelvRatio /= ((x_cells-2)*(y_cells-2));
             TaveGlobal /= (x_cells*y_cells);
 
             //Thickness output
@@ -1796,9 +1930,16 @@ int main(int argc, char * argv[]) {
 
             
             //fprintf(normConc,  "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f\n", timeplot, normalArea, concentration, ConcB, ConcF, SurfArea, thick_tot2, TaveGlobal, thick_coarse_ave2, thick_fine_ave2);
-            fprintf(normConc,  "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f\n", timeplot, normalArea, concentration, min(ConcB, initial_coarse), ConcF, SurfArea, thick_tot2, TaveGlobal, thick_coarse_ave2, thick_fine_ave2); //Allow declining thread
+            fprintf(normConc,  "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f\n", timeplot, normalArea, concentration, min(ConcB, initial_coarse), ConcF, SurfArea, thick_tot2, TaveGlobal, thick_coarse_ave2, thick_fine_ave2, aveFlux, aveFlux2, avelatFlux, avevertFlux, avelvRatio); //Allow declining thread
             fprintf(normArea,  "%4.8f %4.8f %4.8f\n", timeplot, normalArea, concentration);
             fprintf(fluxArea,  "%4.8f %4.8f\n", timeplot, fluxAccArea);
+            //For validation
+            area_loss_lat2 = min(ConcB, initial_coarse)*Domain - area_loss_bkg - area_loss_basal;  //AreaDomain, AreaCoarse, AreaLossBkg, AreaLossBasal, AreaLossLat, AreaLossLat2, AreaLossCoarse
+            //ave_delta_r_rate_step /=  (double(nTout) / double(nTemp)); //Average over all time steps for each capture considering it is done every nTemp
+            ave_delta_r_rate_step /=  86400;
+            fprintf(lossArea,  "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f\n", Domain, min(ConcB, initial_coarse)*Domain, area_loss_bkg, area_loss_basal, area_loss_lat, area_loss_lat2, min(ConcB, initial_coarse)*Domain - prev_coarse_area, ave_delta_r_rate_step); 
+            ave_delta_r_rate_step = 0.0; //Restart to add again and get new rate
+            prev_coarse_area = min(ConcB, initial_coarse)*Domain;
             cout << "Normarea= " << normalArea << " time= " << timeplot  << endl;
             cout << "Concentration= " << concentration << " time= " << timeplot  << endl;
             //cout << "Fluxarea= " << fluxAccArea << " time= " << timeplot  << endl;
@@ -2017,6 +2158,10 @@ int main(int argc, char * argv[]) {
                 }
                 FILE * docgsd = fopen(fnamegsd.c_str(), "w");
                 
+                for (size_t bi = 0; bi < MeltBin.size(); bi++)
+                {
+                    LatRate_step[bi] = LatRate[bi];
+                }
                 
                 for (size_t i = 0; i < bin_size+1; i++) {
                     //Purge any Nan value for export
@@ -2028,8 +2173,14 @@ int main(int argc, char * argv[]) {
                     {
                         GBreakBin[i] = 0.0000;
                     }
+                    
+                    for (size_t i = 0; i < MeltBin.size(); i++)
+                    {
+                        LatRate_step[i] /= double(1); //Calculate sum of average over floes km lost per bin which is in itself km lost per day at these snapshots. Then you clear to find new length lost in the next day. Hence divide by 1.
+                    }
+                    
                     //FSD specific counts (April 24, 2023)
-                    fprintf(docgsd, "%4.8f %4.8f %d %4.8f %4.8f %4.8f %d %d %d %d\n", Diameters[i], Passes[i], (int) Count[i], BinConc[i], GMeltBin[i], GBreakBin[i], (int) NLMelt[i], (int) NLBreak[i], (int) NGMelt[i], (int) NGBreak[i] ); // GSD Print
+                    fprintf(docgsd, "%4.8f %4.8f %d %4.8f %4.8f %4.8f %d %d %d %d %8.16f\n", Diameters[i], Passes[i], (int) Count[i], BinConc[i], GMeltBin[i], GBreakBin[i], (int) NLMelt[i], (int) NLBreak[i], (int) NGMelt[i], (int) NGBreak[i], LatRate_step[i] ); // GSD Print
                 } 
                 fclose(docgsd);
                 
@@ -2041,6 +2192,8 @@ int main(int argc, char * argv[]) {
                     NLBreak[i] = 0;
                     NGMelt[i] = 0;
                     NGBreak[i] = 0;
+                    LatRate_step[i] = 0.0;
+                    LatRate[i] = 0.0;
                 }
             
                 
@@ -2250,7 +2403,7 @@ int main(int argc, char * argv[]) {
                 //Print Mass Loss information
                 //fprintf(massLoss, "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f\n", time_plot, tmass, tmasscoarse, tmassfines, loss_mcl, loss_mcv, gain_fines, loss_fines, total_melt_coarse, tmassA, tmasscoarseA);   //Change Aug 22, 2022
                 //NEW top/down (solar/ ocean decomposition)
-                fprintf(massLoss, "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f\n", time_plot, tmass, tmasscoarse, tmassfines, loss_mcl, loss_mcv, gain_fines, loss_fines, total_melt_coarse, tmassA, tmasscoarseA, loss_mcv_solar, loss_mcv_ocean);   //Change Aug 22, 2022
+                fprintf(massLoss, "%4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %4.8f %8.20f %4.8f\n", time_plot, tmass, tmasscoarse, tmassfines, loss_mcl, loss_mcv, gain_fines, loss_fines, total_melt_coarse, tmassA, tmasscoarseA, loss_mcv_solar, loss_mcv_ocean, MLAT, MBASAL);   //Change Aug 22, 2022
                 cout << "S melt component total: " << loss_mcv_solar << endl;
                 cout << "O melt component total: " << loss_mcv_ocean << endl;
                 //END
@@ -2607,7 +2760,14 @@ int main(int argc, char * argv[]) {
 
         // Take a time step
         //cout << "Run Timestep" << endl;
-        world.grainTimestep();
+        
+        //world.grainTimestep(); //Update with force as usual LS-DEM
+        
+        double temp_speed = 0.0 * floeVel[vel_index](1)/86400.0;   //Remove 0.00 * TEMPo
+        world.changeFlowSpeed(temp_speed);
+        world.changeFlowAngle(floeVel[vel_index](2));
+        world.grainTimestepVelocity(); //Update with reanalysis velocities, in km/s
+        
         //world.fineTimestep(Fine_Grains, Fine_Velocities);
         //cout << "Finish Timestep:" << step << endl; //For debugging
         stepup++;
@@ -2641,7 +2801,7 @@ int main(int argc, char * argv[]) {
     //BEGIN
     fclose(massLoss);
     //END
-    
+    fclose(lossArea);
     
     fclose(wallPosT);
     fclose(wallPosB);

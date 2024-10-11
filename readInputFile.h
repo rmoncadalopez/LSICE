@@ -1073,7 +1073,7 @@ void readSimInputFile (string filename, size_t caseNo, size_t & melt_step, size_
 	break_step = size_t(input1);
 	getline(iss, partial, ' ');
 	input2 = atof(partial.c_str());
-   IlimDiamMax = input2;
+    IlimDiamMax = input2;
 	getline(iss, partial, ' ');
 	input3 = atof(partial.c_str());
 	IlimDiamMin = input3;
@@ -1090,6 +1090,61 @@ void readSimInputFile (string filename, size_t caseNo, size_t & melt_step, size_
 	cout << "Case Results for Case #: " << caseNo << endl;
 	cout << "Melt Step: " << melt_step << " MAXD: " << IlimDiamMax << " MIND: " << IlimDiamMin << " Break Step: " << break_step << " Qvert: " << Vert_q << " QATM: " << Q_atmos << endl;
 
+}
+
+//Longer version to tweak more parameters
+void readSimInputFileMore (string filename, size_t caseNo, size_t & melt_step, size_t & break_step, double & IlimDiamMax, double & IlimDiamMin, double & Vert_q, double & Q_atmos, double & mixed_layerh_in, double & kappa_in)
+{
+	
+    ifstream file(filename.c_str());		// construct an ifstream and open the input file
+    string   line;
+    string 	partial;
+	istringstream iss;
+
+	//Declare inputs or uses addresses
+	double input0, input1, input2, input3, input4, input5, input6, input7;
+
+   //Get data from text, move to the right case line   	
+	for (size_t i = 0; i < caseNo; i++)
+	{
+		getline(file, line);
+		iss.str(line);
+		getline(iss, partial, ' ');
+		iss.clear();
+   }
+
+	getline(file, line);
+	iss.str(line);
+	getline(iss, partial, ' ');
+	input0 = atof(partial.c_str());
+	melt_step = size_t(input0);
+	getline(iss, partial, ' ');
+	input1 = atof(partial.c_str());
+	break_step = size_t(input1);
+	getline(iss, partial, ' ');
+	input2 = atof(partial.c_str());
+    IlimDiamMax = input2;
+	getline(iss, partial, ' ');
+	input3 = atof(partial.c_str());
+	IlimDiamMin = input3;
+	getline(iss, partial, ' ');
+	input4 = atof(partial.c_str());
+	Vert_q = input4;
+	getline(iss, partial, ' ');
+	input5 = atof(partial.c_str());
+	Q_atmos = input5;
+	getline(iss, partial, ' ');
+	input6 = atof(partial.c_str());
+	mixed_layerh_in = input6;
+	getline(iss, partial, ' ');
+	input7 = atof(partial.c_str());
+	kappa_in = input7;
+	
+	iss.clear();
+	
+	//Print Results
+	cout << "Case Results for Case #: " << caseNo << endl;
+	cout << "Melt Step: " << melt_step << " MAXD: " << IlimDiamMax << " MIND: " << IlimDiamMin << " Break Step: " << break_step << " Qvert: " << Vert_q << " QATM: " << Q_atmos <<  " Hlayer: " << mixed_layerh_in <<  " Kappa: " << kappa_in << endl;
 }
 
 //Read Conc. File (1 line, 2 columns)
@@ -1210,19 +1265,17 @@ vector<Vector3d> readFloeVelFile (string filename)
 	vector<Vector3d> vel(count);
     
 
-	std::cout << "Importing floe velocities!!" << std::endl;
+	std::cout << "Importing floe velocities (time, speed, angle)!!" << std::endl;
 	// Reading file lines
 	for (int i = 0; i < count; i++) {
 		getline(file, line);
 		iss.str(line);
 		getline(iss, partial, ' ');
-		vel[i](0) = atof(partial.c_str());
+		vel[i](0) = atof(partial.c_str()); //time
 		getline(iss, partial, ' ');
-		vel[i](1) = atof(partial.c_str());
+		vel[i](1) = atof(partial.c_str()); //speed
 		getline(iss, partial, ' ');
-		getline(iss, partial, ' ');
-		getline(iss, partial, ' ');
-		vel[i](2) = atof(partial.c_str());
+		vel[i](2) = atof(partial.c_str()); //angle
 		iss.clear();
 
 		std::cout << vel[i](0) << " " << vel[i](1) << " " << vel[i](2) << std::endl;

@@ -8,13 +8,26 @@ from matplotlib.collections import PatchCollection
 from multiprocessing import Pool
 import matplotlib
 #matplotlib.use('Agg')
-from scipy.optimize import curve_fit
+#from scipy.optimize import curve_fit
 import sys
 import shutil
-from scipy.integrate import simps
+
+#from scipy.integrate import simps
+def simps(Conc, dx):
+    lv = len(Conc)    
+    h = dx
+    x = np.linspace(0, lv, lv)
+    y = Conc
+    return h/3 * (y[0] + 4*np.sum(y[1:-1:2]) + 2*np.sum(y[2:-1:2]) + y[-1])
+
+
 from numpy import trapz
 from mpl_toolkits.mplot3d import Axes3D
-from scipy.optimize import curve_fit
+#from scipy.optimize import curve_fit
+def curve_fit(objective, x, y):
+    return 1,1
+
+from matplotlib import colors
 
 from PIL import Image
 
@@ -147,7 +160,7 @@ def slope_int(Conc):
     #for i in range(len(Conc)-1):
         #slopeVint += abs(timeCT[i+1] - timeCT[i]) * 0.5*(Conc[i]+Conc[i+1])  #area = trapz(y, dx=1) area = simps(y, dx=1)        
     #return slopeVint
-    return simps(Conc, dx=1)
+    return simps(Conc, 1)
 
 
 def slope_simple(Conc, nDays):
@@ -535,10 +548,10 @@ def mass_process(caseNo, year):
 
     #Bkg/Melt Ratio
     #Form A. Using Cumulative
-    areaBkg = simps(dataV, dx=1)
-    areaMelt = simps(dataV2, dx=1)
-    areaOcean = simps(dataVo, dx=1)
-    areaSolar = simps(dataVs, dx=1)
+    areaBkg = simps(dataV, 1)
+    areaMelt = simps(dataV2, 1)
+    areaOcean = simps(dataVo, 1)
+    areaSolar = simps(dataVs, 1)
     #tMassC = pre_total[-1]
     #dataV3 = pre_total/tMassC/(len(pre_total))
     ratioInt = areaBkg/areaMelt
@@ -547,8 +560,8 @@ def mass_process(caseNo, year):
     #Form B. Using instantaneous
     rateBkg = np.gradient(dataV)
     rateMelt = np.gradient(dataV2)
-    areaBkg = simps(rateBkg, dx=1)
-    areaMelt = simps(rateMelt, dx=1)
+    areaBkg = simps(rateBkg, 1)
+    areaMelt = simps(rateMelt, 1)
     #ratioInt = areaBkg/areaMelt
     ratio = (dataV[-1]/dataV2[-1])
     
@@ -567,12 +580,12 @@ def mass_process(caseNo, year):
     print("dataV3: ", dataV3)
     
     #Form A. Integrated Cum Mass Loss again
-    cum_mass_loss = simps(dataV3, dx = 1)
+    cum_mass_loss = simps(dataV3, 1)
     
     #Form B. Derivate Total Loss and then integrate it again
     #mass_loss_rate = np.gradient(dataV3)  #Get mass loss over time
     mass_loss_rate = np.gradient(total_melt_coarse)  #Get mass loss over time
-    cum_mass_loss = simps(mass_loss_rate, dx = 1) / tstop  #Integrate to add mass lost and average how fast it took to lose it
+    cum_mass_loss = simps(mass_loss_rate, 1) / tstop  #Integrate to add mass lost and average how fast it took to lose it
     
     
     #print('Mass')
@@ -600,7 +613,7 @@ if year == 2018:
     else:
         #outputFolder2 = "./Output/Analysis_2018_S_"+str(Satm)+"/"
         if qv_val:
-            outputFolder2 = "./Output/Analysis_2018Int_B_"+str(Bfix)+"_Test/"
+            outputFolder2 = "./Output/Analysis_2018Int_Bnew_"+str(Bfix)+"_Testv2/"
         else:
             outputFolder2 = "./Output/Analysis_2018Int_B_"+str(Satm)+"_kappa/"
 elif year == 2020:
@@ -660,13 +673,16 @@ else:
 #qvertRange = [10,15,20,25,30,35] #earlier more narrow range
 #Satm_range = [240,250,260,270,290,310,320]
 
+Srange = [150, 200, 240, 280, 330]
+qvertRange = [10, 25, 50, 100, 140, 180, 250]
+
 valid_cases0 = []
 bad_cases = []
 #Remove non-usable cases for Qatm
 for i in range(caseL):
     caseNo = i + start_case
     if (caseNo <= 622 or caseNo>=630):
-        if (caseNo < 1037 or caseNo > 1099) and caseNo < 1700:  #Modify for right cases
+        if (caseNo < 1037 or caseNo > 1099) and caseNo < 2800:  #Modify for right cases
         	[nBreak, qvert, Qatm] = read_params(caseNo, year)
         	if Qatm == 0:
         	    print("AA")
@@ -811,7 +827,14 @@ for k in range(len(qvertRange)):
                 if status_good == False:
                     massProcessbad.append([valid_cases1[ii], qvert_compare, nBreak_compare])
                 #multiV = [ qvert_compare, (nBreak_compare), abs(slope_coarse), abs(slope_fine), valid_cases1[ii], C_error, F_error, T_error, Temp_error, abs(slope_total) ];
+                
+                ###Original S = 310
+                ###multiV = [qvert_compare, nBreak_compare, abs(slope_coarse), abs(slope_fine), valid_cases1[ii], C_error, F_error, T_error, Temp_error, abs(slope_total), ratio, ratioInt, cum_mass_loss, mass_slope, ratioIntm, massLOST];
+                
+                #Sadjustment S = 240 (linear after scaling S.)
                 multiV = [qvert_compare, nBreak_compare, abs(slope_coarse), abs(slope_fine), valid_cases1[ii], C_error, F_error, T_error, Temp_error, abs(slope_total), ratio, ratioInt, cum_mass_loss, mass_slope, ratioIntm, massLOST];
+
+                
                 #multiV = [qvert, (1/nBreak), abs(slope_coarse), abs(slope_fine), valid_cases1[ii], C_error, F_error, T_error, Temp_error];
                 refT.append([qvert, Qatm])
                 Vec_MultiD.append(multiV)
@@ -1061,9 +1084,9 @@ elif year == 2020:
 
 xmin = [((drhoi*dLf*deltah) / (deltaT*25))/86400/nDaysxy]
 ymin = [Ns * dNf * (1000)/86400/nDaysxy]
-xmin = 25 
+xmin = 240 #S 
 #Compromise for FSD and concentration
-ymin = 310
+ymin = 100 #qv
 # yBH = 86400 * 1/1000
 # yBL = 86400 * 1/19500  #Really 40,000 shifted for better view
 
@@ -1223,10 +1246,10 @@ fig, ax = plt.subplots(figsize=(11,10))
 #plt.title('Coarse Grain Concentration Inv. Area', size=20)
 #plt.title('Concentration Loss Rate: Coarse', size=25)
 plt.title('Mean Concentration Rate: Coarse', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
-# plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
-# plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
-plt.legend(fontsize = 18)
+# plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
+# # plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
+# # plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
+# plt.legend(fontsize = 18)
 #contours2 = plt.contour(xArr, yArr, zSlopeCArr, 30)
 
 #CS = plt.contour(xArr, yArr, zRatioTArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(2,))
@@ -1236,7 +1259,7 @@ plt.legend(fontsize = 18)
 
 contoursb = plt.contour(xArr, yArr, zSlopeCArr, 20, colors = 'black', linestyles='-')
 #contours = plt.contourf(xArr, yArr, zSlopeCArr, 20, cmap='coolwarm')
-contours = plt.contourf(xArr, yArr, zSlopeCArr, 20, cmap='coolwarm')
+contours = plt.contourf(xArr, yArr, zSlopeCArr, 20, cmap='YlOrRd')
 #plt.clabel(contours2, contours2.levels, inline=True, fontsize=15)
 #plt.imshow(zSlopeCArr, extent=[x[0], x[-1], y[0], y[-1]], origin='lower', cmap='RdGy', alpha=0.5)
 #plt.clabel(contours, inline=True, fontsize=8, colors='k')
@@ -1277,10 +1300,10 @@ fig = plt.figure(figsize=(10,10))
 #plt.title('Coarse Grain Concentration Inv. Area', size=20)
 #plt.title('Concentration Loss Rate: Coarse LOG', size=25)
 plt.title('Mean Concentration: Coarse LOG', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Closest fit to Sat. Observations')
-# plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
-# plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
-plt.legend(fontsize = 18)
+# plt.plot(xmin,ymin,'k*',markersize=18,label='Closest fit to Sat. Observations')
+# # plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
+# # plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
+# plt.legend(fontsize = 18)
 #contours2 = plt.contour(xArr, yArr, zSlopeCArr, 30)
 
 #CS = plt.contour(xArr, yArr, zRatioTArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(2,))
@@ -1289,7 +1312,7 @@ plt.legend(fontsize = 18)
 #plt.clabel(contours2, colors = ['black'], inline=True, fontsize=12)
 
 contoursb = plt.contour(xArr, yArr, zSlopeCArr, 20, colors = 'black', linestyles='-')
-contours = plt.contourf(xArr, yArr, zSlopeCArr, 20, cmap='coolwarm_r')
+contours = plt.contourf(xArr, yArr, zSlopeCArr, 20, cmap='YlOrRd')
 #plt.clabel(contours2, contours2.levels, inline=True, fontsize=15)
 #plt.imshow(zSlopeCArr, extent=[x[0], x[-1], y[0], y[-1]], origin='lower', cmap='RdGy', alpha=0.5)
 #plt.clabel(contours, inline=True, fontsize=8, colors='k')
@@ -1325,10 +1348,10 @@ fig, ax = plt.subplots(figsize=(11,10))
 #plt.title('Fine Concentration Inv. Area', size=20)
 plt.title('Mean Concentration Rate: Fine', size=25)
 #plt.title('Concentration Loss Rate: Fine', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
-# plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
-# plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
-plt.legend(fontsize = 18)
+# plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
+# # plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
+# # plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
+# plt.legend(fontsize = 18)
 
 # CS = plt.contour(xArr, yArr, zRatioTArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(2,))
 # plt.clabel(CS, fmt = '%2.1d', colors = 'k', fontsize=15)
@@ -1338,7 +1361,7 @@ plt.legend(fontsize = 18)
 # plt.clabel(contours2, colors = ['k'], inline=True, fontsize=12)
 
 contoursb = plt.contour(xArr, yArr, zSlopeFArr, 19, colors = 'black', linestyles='-')
-contours = plt.contourf(xArr, yArr, zSlopeFArr, 19, cmap='coolwarm')
+contours = plt.contourf(xArr, yArr, zSlopeFArr, 19, cmap='YlOrRd')
 #plt.clabel(contours2, contours2.levels, inline=True, fontsize=15)
 #plt.imshow(zSlopeCArr, extent=[x[0], x[-1], y[0], y[-1]], origin='lower', cmap='RdGy', alpha=0.5)
 #plt.clabel(contours, inline=True, fontsize=8, colors='k')
@@ -1378,10 +1401,10 @@ fig, ax = plt.subplots(figsize=(11,10))
 #plt.title('Total Concentration Inv. Area', size=20)
 plt.title('Mean Concentration Rate: Total', size=25)
 #plt.title('Concentration Loss Rate: Total', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
-# plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
-# plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
-plt.legend(fontsize = 18)
+# plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
+# # plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
+# # plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
+# plt.legend(fontsize = 18)
 
 # CS = plt.contour(xArr, yArr, zRatioTArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(2,))
 # plt.clabel(CS, fmt = '%2.1d', colors = 'k', fontsize=15)
@@ -1391,7 +1414,7 @@ plt.legend(fontsize = 18)
 # plt.clabel(contours2, colors = ['k'], inline=True, fontsize=12)
 
 contoursb = plt.contour(xArr, yArr, zSlopeTArr, 20, colors = 'black', linestyles='-')
-contours = plt.contourf(xArr, yArr, zSlopeTArr, 20, cmap='coolwarm')
+contours = plt.contourf(xArr, yArr, zSlopeTArr, 20, cmap='YlOrRd')
 #plt.clabel(contours2, contours2.levels, inline=True, fontsize=15)
 #plt.imshow(zSlopeCArr, extent=[x[0], x[-1], y[0], y[-1]], origin='lower', cmap='RdGy', alpha=0.5)
 #plt.clabel(contours, inline=True, fontsize=8, colors='k')
@@ -1551,7 +1574,7 @@ plt.close()
 fig, ax = plt.subplots(figsize=(10,10))
 #plt.title('Total Concentration Inv. Area', size=20)
 plt.title('Breakage vs. Melt Comparison', size=20)
-plt.plot(xmin,ymin,'k*',markersize=20, label='Obs. Fit')
+# plt.plot(xmin,ymin,'k*',markersize=20, label='Obs. Fit')
 # plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
 # plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
 contours2 = plt.contour(xArr, yArr, ratioVArr, 30, colors = 'black')
@@ -1734,10 +1757,10 @@ fig, ax = plt.subplots(figsize=(11,10))
 #plt.title('Coarse Grain Concentration Inv. Area', size=20)
 #plt.title('Concentration Loss Rate: Coarse', size=25)
 plt.title('Mass Loss Rate: Coarse', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
-# plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
-# plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
-plt.legend(fontsize = 18)
+# plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
+# # plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
+# # plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
+# plt.legend(fontsize = 18)
 #contours2 = plt.contour(xArr, yArr, zSlopeCArr, 30)
 
 #CS = plt.contour(xArr, yArr, zRatioTArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(2,))
@@ -1799,11 +1822,13 @@ fig, ax = plt.subplots(figsize=(11,10))
 
 #plt.title('Coarse Grain Concentration Inv. Area', size=20)
 #plt.title('Concentration Loss Rate: Coarse', size=25)
-plt.title('Normalized Mass Loss Rate: Coarse', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
-# plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
-# plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
-plt.legend(fontsize = 18)
+#plt.title('Normalized Mass Loss Rate: Resolved', size=25)
+plt.title('Mass Loss Rate', size=25)
+plt.plot(xmin,ymin,'k*',markersize=20,label='Obs. Fit')
+# plt.plot(ymin,xmin,'k*',markersize=20,label='Obs. Fit')
+# # plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
+# # plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
+plt.legend(fontsize = 21)
 #contours2 = plt.contour(xArr, yArr, zSlopeCArr, 30)
 
 #CS = plt.contour(xArr, yArr, zRatioTArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(2,))
@@ -1815,14 +1840,16 @@ plt.legend(fontsize = 18)
 #CS = plt.contour(xArr, yArr, ratioIntVArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(2,))
 #plt.clabel(CS, fmt = '%2.1d', colors = ['k'], fontsize=12)
 #Norm Rate COntour Data
+#CS2 = plt.contour(xArr, yArr, slope_massVArr/1e11, 20, colors=('k',), linestyles=('-',), linewidths=(1.5,))
+CS2 = plt.contour(yArr, xArr, slope_massVArr/1e11, 20, colors=('k',), linestyles=('-',), linewidths=(1.5,))
 #CS2 = plt.contour(xArr, yArr, slope_massVArr/massLostMax, 20, colors=('k',), linestyles=('-',), linewidths=(1.5,))
 ##CS2 = plt.contour(xArr, yArr, slope_massVArr/massLostVArr, 20, colors=('k',), linestyles=('-',), linewidths=(1.5,))
 
-#Ocean/Melt Data
-CS = plt.contour(xArr, yArr, ratioIntmVArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(3.5,))
-plt.clabel(CS, fmt = '%2.2f', colors = ['k'], fontsize=14)
-CS2 = plt.contour(xArr, yArr, ratioIntmVArr, 30, colors=('k',), linestyles=('-',), linewidths=(1.5,))
-plt.clabel(CS2, fmt = '%2.2f', colors = ['k'], fontsize=14)
+# #Ocean/Melt Data
+# CS = plt.contour(xArr, yArr, ratioIntmVArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(3.5,))
+# plt.clabel(CS, fmt = '%2.2f', colors = ['k'], fontsize=14)
+# CS2 = plt.contour(xArr, yArr, ratioIntmVArr, 30, colors=('k',), linestyles=('-',), linewidths=(1.5,))
+# plt.clabel(CS2, fmt = '%2.2f', colors = ['k'], fontsize=14)
 
 # plt.clabel(CS2, inline=1, fontsize=18)
 # labels = [r'$/mu_{m}$']
@@ -1835,7 +1862,9 @@ plt.clabel(CS2, fmt = '%2.2f', colors = ['k'], fontsize=14)
 #plt.clabel(contours3, colors = 'black', inline=True, fontsize=12)
 
 #contours = plt.contourf(xArr, yArr, ratioIntVArr, 15, cmap='coolwarm') #Area bkg/melt ratio
-contours = plt.contourf(xArr, yArr, slope_massVArr/massLostMax, 20, cmap='coolwarm') #Mass loss
+#contours = plt.contourf(xArr, yArr, slope_massVArr/1e11, 20, cmap='YlOrRd', vmin=1.25, vmax=6.50) #Mass loss
+contours = plt.contourf(yArr, xArr, slope_massVArr/1e11, 20, cmap='YlOrRd', vmin=1.25, vmax=6.50) #Mass loss
+#contours = plt.contourf(xArr, yArr, slope_massVArr/massLostMax, 20, cmap='YlOrRd')#, vmin=0.015, vmax=0.060) #Mass loss
 #contours = plt.contourf(xArr, yArr, slope_massVArr/massLostVArr, 20, cmap='coolwarm') #Mass loss
 #plt.clabel(contours2, contours2.levels, inline=True, fontsize=15)
 #plt.imshow(zSlopeCArr, extent=[x[0], x[-1], y[0], y[-1]], origin='lower', cmap='RdGy', alpha=0.5)
@@ -1846,13 +1875,15 @@ contours = plt.contourf(xArr, yArr, slope_massVArr/massLostMax, 20, cmap='coolwa
 # axes.xaxis.label.set_size(20)
 # axes.yaxis.label.set_size(20)
 #axes.tick_params(labelsize=18)
-ax.xaxis.set_tick_params(labelsize=18)
-ax.yaxis.set_tick_params(labelsize=18)
+ax.xaxis.set_tick_params(labelsize=20)
+ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
-    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)    
+    #plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)   
+    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)
 else: 
-    plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
-plt.ylabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20) 
+    plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
+#plt.ylabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22) 
+plt.ylabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22) 
 # plt.xlabel('Melt Time (days)')
 # plt.ylabel('Break Time (days)')
 # plt.xlabel('Melt Nondimensional Time')
@@ -1861,14 +1892,15 @@ plt.ylabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)
 #cbar = plt.colorbar();
 cax = make_square_axes_with_colorbar(ax, size=0.23, pad=0.15)
 cbar = fig.colorbar(contours, cax=cax)# format=matplotlib.ticker.FuncFormatter(myfmt4))
-
+#cbar.set_clim(0.012, 0.066)
 #cbar.ax.get_yaxis().labelpad = 15
 #cbar.ax.set_ylabel('Concentration Inv. Area (1/d)', rotation=270, labelpad=15)
 #cbar.ax.set_ylabel(r'Normalized Mass Loss Rate ($d^{-1}$)', rotation=90, labelpad=18, size=18)
-cbar.ax.set_ylabel(r'($d^{-1}$)', rotation=90, labelpad=18, size=18)
+cbar.ax.set_ylabel(r'(1e11 kg $d^{-1}$)', rotation=90, labelpad=18, size=20)
 #cbar.ax.set_ylabel('Concentration Loss Rate (%/d)', rotation=270, labelpad=18, size=18)
-cbar.ax.tick_params(labelsize=18)
-
+cbar.ax.tick_params(labelsize=20)
+#cbar.set_ticks(np.arange(0.015,0.070,0.005))
+cbar.set_ticks(np.arange(1.25,7.25,0.75))
 plt.savefig(outputFolder2 + "Results_Plot_Ratio_SlopeMassNorm_ONLY.png")
 plt.close()
 
@@ -1947,8 +1979,8 @@ plt.close()
 fig = plt.figure(figsize=(11,10))
 #plt.title('Total Concentration Inv. Area', size=20)
 plt.title('Mass Loss Rate LOG', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Closest fit to Sat. Observations')
-plt.legend(fontsize = 18)
+# plt.plot(xmin,ymin,'k*',markersize=18,label='Closest fit to Sat. Observations')
+# plt.legend(fontsize = 18)
 #contours2 = plt.contour(xArr, yArr, ratioIntVArr, 15, colors = 'black')
 #CS = plt.contour(xArr, yArr, ratioIntVArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(2,))
 #plt.clabel(CS, fmt = '%2.1d', colors = ['k'], fontsize=12)
@@ -1998,15 +2030,15 @@ plt.close()
 fig, ax = plt.subplots(figsize=(11,10))
 #plt.title('Total Concentration Inv. Area', size=20)
 plt.title('Breakage vs. Melt Dominance: Coarse', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
-# plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
-# plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
-plt.legend(fontsize = 18)
+# plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
+# # plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
+# # plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
+# plt.legend(fontsize = 18)
 #contours2 = plt.contour(xArr, yArr, ratioIntVArr, 15, colors = 'black')
 CS = plt.contour(xArr, yArr, ratioIntVArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(3.5,))
-plt.clabel(CS, fmt = '%2.2f', colors = ['k'], fontsize=14)
+plt.clabel(CS, fmt = '%2.2f', colors = ['k'], fontsize=16)
 CS2 = plt.contour(xArr, yArr, ratioIntVArr, 30, colors=('k',), linestyles=('-',), linewidths=(1.5,))
-plt.clabel(CS2, fmt = '%2.2f', colors = ['k'], fontsize=14)
+plt.clabel(CS2, fmt = '%2.2f', colors = ['k'], fontsize=16)
 #CS3 = plt.contour(xArr, yArr, ratioIntVArr,levels = [1.1200000,1.12000001], colors=('k',),linestyles=('--',),linewidths=(2.0,))
 #plt.clabel(CS3, fmt = '%2.2f', colors = ['k'], fontsize=14)
 
@@ -2024,13 +2056,13 @@ contours = plt.contourf(xArr, yArr, ratioIntVArr, 30, cmap='coolwarm_r') #Mass l
 # axes.xaxis.label.set_size(20)
 # axes.yaxis.label.set_size(20)
 #axes.tick_params(labelsize=18)
-ax.xaxis.set_tick_params(labelsize=18)
-ax.yaxis.set_tick_params(labelsize=18)
+ax.xaxis.set_tick_params(labelsize=20)
+ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
-    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)    
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)    
 else: 
-    plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
-plt.ylabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20) 
+    plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
+plt.ylabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22) 
 # plt.xlabel('Melt Time (days)')
 # plt.ylabel('Break Time (days)')
 # plt.xlabel('Melt Nondimensional Time')
@@ -2042,9 +2074,9 @@ cbar = fig.colorbar(contours, cax=cax, format=matplotlib.ticker.FuncFormatter(my
 
 #cbar.ax.get_yaxis().labelpad = 15
 #cbar.ax.set_ylabel('Concentration Inv. Area (1/d)', rotation=270, labelpad=15)
-cbar.ax.set_ylabel(r'$\mu$', rotation=90, labelpad=18, size=18)
+cbar.ax.set_ylabel(r'$\mu$', rotation=90, labelpad=18, size=20)
 #cbar.ax.set_ylabel('Concentration Loss Rate (%/d)', rotation=270, labelpad=18, size=18)
-cbar.ax.tick_params(labelsize=18)
+cbar.ax.tick_params(labelsize=20)
 plt.savefig(outputFolder2 + "Results_Plot_RatioBM_ONLY.png")
 plt.close()
 
@@ -2052,24 +2084,33 @@ plt.close()
 #fig = plt.figure(figsize=(10,10))
 fig, ax = plt.subplots(figsize=(11,10))
 #plt.title('Total Concentration Inv. Area', size=20)
-plt.title('Ocean vs. Solar Melt Dominance: Coarse', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
-# plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
-# plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
-plt.legend(fontsize = 18)
+#plt.title('Ocean vs. Solar Melt Dominance: Resolved', size=25)
+plt.title('Ocean vs. Solar Melt', size=25)
+plt.plot(xmin,ymin,'k*',markersize=20,label='Obs. Fit', markeredgecolor='black')
+# plt.plot(ymin,xmin,'k*',markersize=20,label='Obs. Fit', markeredgecolor='black')
+# # plt.plot(xmin,yBH,'b*',markersize=18,label='High Break')
+# # plt.plot(xmin,yBL,'r*',markersize=18,label='Low Break')
+plt.legend(fontsize = 21)
 #contours2 = plt.contour(xArr, yArr, ratioIntVArr, 15, colors = 'black')
-CS = plt.contour(xArr, yArr, ratioIntmVArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(3.5,))
-plt.clabel(CS, fmt = '%2.2f', colors = ['k'], fontsize=14)
-CS2 = plt.contour(xArr, yArr, ratioIntmVArr, 30, colors=('k',), linestyles=('-',), linewidths=(1.5,))
-plt.clabel(CS2, fmt = '%2.2f', colors = ['k'], fontsize=14)
+#CS = plt.contour(xArr, yArr, ratioIntmVArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(3.5,))
+CS = plt.contour(yArr, xArr, ratioIntmVArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(3.5,))
+plt.clabel(CS, fmt = '%2.2f', colors = ['k'], fontsize=16)
+#CS2 = plt.contour(xArr, yArr, ratioIntmVArr, 24, colors=('k',), linestyles=('-',), linewidths=(1.5,))
+CS2 = plt.contour(yArr, xArr, ratioIntmVArr, 30, colors=('k',), linestyles=('-',), linewidths=(1.5,))
+plt.clabel(CS2, fmt = '%2.2f', colors = ['k'], fontsize=16)
 #CS3 = plt.contour(xArr, yArr, ratioIntVArr,levels = [1.1200000,1.12000001], colors=('k',),linestyles=('--',),linewidths=(2.0,))
 #plt.clabel(CS3, fmt = '%2.2f', colors = ['k'], fontsize=14)
 
 #contours3 = plt.contour(xArr, yArr, zRatioTArr, 30)
 #plt.clabel(contours3, colors = 'black', inline=True, fontsize=12)
 
+
+divnorm=colors.TwoSlopeNorm(vmin=0., vcenter=1., vmax=5.8)
+#pcolormesh(your_data, cmap="coolwarm", norm=divnorm)
+
 #contours = plt.contourf(xArr, yArr, ratioIntVArr, 15, cmap='coolwarm') #Area bkg/melt ratio
-contours = plt.contourf(xArr, yArr, ratioIntmVArr, 30, cmap='coolwarm_r') #Mass loss
+#contours = plt.contourf(xArr, yArr, ratioIntmVArr, 24, cmap='coolwarm_r', norm=divnorm, vmin=0.0, vmax=5.60) #Mass loss
+contours = plt.contourf(yArr, xArr, ratioIntmVArr, 30, cmap='coolwarm_r', norm=divnorm, vmin=0.0, vmax=5.60) #Mass loss
 #plt.clabel(contours2, contours2.levels, inline=True, fontsize=15)
 #plt.imshow(zSlopeCArr, extent=[x[0], x[-1], y[0], y[-1]], origin='lower', cmap='RdGy', alpha=0.5)
 #plt.clabel(contours, inline=True, fontsize=8, colors='k')
@@ -2079,13 +2120,15 @@ contours = plt.contourf(xArr, yArr, ratioIntmVArr, 30, cmap='coolwarm_r') #Mass 
 # axes.xaxis.label.set_size(20)
 # axes.yaxis.label.set_size(20)
 #axes.tick_params(labelsize=18)
-ax.xaxis.set_tick_params(labelsize=18)
-ax.yaxis.set_tick_params(labelsize=18)
+ax.xaxis.set_tick_params(labelsize=20)
+ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
-    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)    
+    #plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)    
+    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22) 
 else: 
-    plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
-plt.ylabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20) 
+    plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
+#plt.ylabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22) 
+plt.ylabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)   
 # plt.xlabel('Melt Time (days)')
 # plt.ylabel('Break Time (days)')
 # plt.xlabel('Melt Nondimensional Time')
@@ -2094,12 +2137,13 @@ plt.ylabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)
 #cbar = plt.colorbar();
 cax = make_square_axes_with_colorbar(ax, size=0.23, pad=0.15)
 cbar = fig.colorbar(contours, cax=cax, format=matplotlib.ticker.FuncFormatter(myfmt2))
-
+#cbar.set_clim(0.00, 5.00)
 #cbar.ax.get_yaxis().labelpad = 15
 #cbar.ax.set_ylabel('Concentration Inv. Area (1/d)', rotation=270, labelpad=15)
-cbar.ax.set_ylabel(r'$\mu_{m}$', rotation=90, labelpad=18, size=18)
+cbar.ax.set_ylabel(r'$\mu_{OS}$', rotation=90, labelpad=18, size=20)
 #cbar.ax.set_ylabel('Concentration Loss Rate (%/d)', rotation=270, labelpad=18, size=18)
-cbar.ax.tick_params(labelsize=18)
+cbar.ax.tick_params(labelsize=20)
+cbar.set_ticks(np.arange(0.00,6.00,0.4))
 plt.savefig(outputFolder2 + "Results_Plot_RatioOS_Melt_ONLY.png")
 plt.close()
 
@@ -2186,8 +2230,8 @@ plt.close()
 # #Same as above but for Error Contours
 fig, ax = plt.subplots(figsize=(11,10))
 plt.title('FSD Slope RMSE', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
-plt.legend(fontsize = 18)
+# plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
+# plt.legend(fontsize = 18)
 
 contours2 = plt.contour(xArr, yArr, zErrorAlphaArr, 35, colors=('k',), linestyles=('-',), linewidths=(1.0,))
 contours = plt.contourf(xArr, yArr, zErrorAlphaArr, 35, cmap='coolwarm')
@@ -2215,8 +2259,8 @@ fig, ax = plt.subplots(figsize=(11,10))
 #plt.title('Coarse Grain Concentration Inv. Area', size=20)
 #plt.title('Concentration Loss Rate: Coarse', size=25)
 plt.title('Coarse Floe Concentration RMSE', size=25)
-plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
-plt.legend(fontsize = 18)
+# plt.plot(xmin,ymin,'k*',markersize=18,label='Obs. Fit')
+# plt.legend(fontsize = 18)
 #contours2 = plt.contour(xArr, yArr, zSlopeCArr, 30)
 
 #CS = plt.contour(xArr, yArr, zRatioTArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(2,))

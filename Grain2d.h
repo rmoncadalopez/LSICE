@@ -164,6 +164,20 @@ public:
         return result_cover;
     }
 	
+	bool under_iceDEM(Vector2d & ptDetect)
+    {
+        bool            result_cover = false; //We assume no ice cover by default and prove the opposite.
+        
+        //Start with a simple BBox radius criterion for simplicity (improve for PBC)
+        if (  (ptDetect-_position).norm() <= _radius  )  //No need for PBC for initialization, but needs for shifting grains
+        {
+                result_cover = true;
+        }
+    
+        return result_cover;
+    }
+	
+	
 
 	// 1st level check for periodic bcs with a particular offset along x
 	bool bcircleGrainIntersectionXOffset(const Grain2d & other, const double & offset) const {
@@ -443,7 +457,7 @@ public:
 	} // end findInterparticleForceMoment
 
     //Same as above, but for regular DEM
-	bool findInterparticleForceMomentDEM(Grain2d & other, const double & dt, Vector2d & force, double & thisMoment, double & otherMoment, size_t & nContacts, const Vector2d & offset, const size_t & numGrainWalls) {
+	bool findInterparticleForceMomentDEM(Grain2d & other, const double & dt, Vector2d & force, double & thisMoment, double & otherMoment, size_t & nContacts, const Vector2d & offset, const size_t & numGrainWalls, size_t & ntension, size_t & nshear) {
 
 		// Declare temporary variables
 	    force << 0., 0.;	    								 // force at a contact point (shared by the two grains in contact)
@@ -751,7 +765,8 @@ public:
 		        	
                     //cout << "Sigma: " << sigma << " cohesiveDist: " << _cohesiveDistance << endl;
                     //relax to check
-			        if (sigma <= _cohesiveDistance) {  //Change function to getNormal, use isCohesion only for bond formation, analogous using radial distance, normal before
+                    double cohM = 1.0; //Default 1.0 //Larger, more lenient with separation
+			        if (sigma <= _cohesiveDistance * cohM) {  //Change function to getNormal, use isCohesion only for bond formation, analogous using radial distance, normal before
     					// relative v of this wrt the other
     					relativeVel << -other.getVelocity()(0) + other.getOmega()*ptOtherCM(1) + (_velocity(0) - _omega*ptThisCM(1)),
     				               	   -other.getVelocity()(1) - other.getOmega()*ptOtherCM(0) + (_velocity(1) + _omega*ptThisCM(0));
@@ -791,9 +806,11 @@ public:
     					    cout << "Exceeding bond strength -> fSig[bondidx]: " << _fSig[bondidx] << " sigC: " << _sigC * _sigrF[bondidx] << " fTau[bondidx]: " << _fTau[bondidx] << " tauC: " << _tauC * _taurF[bondidx] << endl;
     					    if (   ( _fSig[bondidx] / (_sigC * _sigrF[bondidx]) ) >  ( _fTau[bondidx]/(_tauC * _taurF[bondidx]) )  ){
     					        cout << "Tension Failure" << endl;
+    					        ntension++;
     					    }
     					    else{
     					        cout << "Shear Failure" << endl;
+    					        nshear++;
     					    }
     						// bonds broken
     						_bondInfo[bondidx][0] = 0;
@@ -1230,7 +1247,7 @@ public:
 
 
     //Simpler function
-		//Constant water and air velocities        //Uses only a simple drag force, no skin drag moment assuming center of mass application only
+	//Constant water and air velocities        //Uses only a simple drag force, no skin drag moment assuming center of mass application only
     void fluidInteraction_Nova (const double & Cha, const double & Cva, const double & Chw, const double & Cvw,
                            const double & rhoice, const double & rhoair, const double & rhowater,
                            const double & hice, double & hair, double & hwater, Vector2d & Ua, Vector2d & Uw,
@@ -1386,7 +1403,7 @@ public:
 		Vector2d floeLocation = _position; //Use points for area
 		
 		//double adjust_fff = 1e-4 * (1/0.000007) * 1; //0.01 too weak for mini alone //1e-4 WORKS!!!! with 1/dt   ####1e3 few, 1e7 too much, even 5e3 too much //Initially 1e2 seems okay but still tooooo much , 5e-2 still too high converge, 5e-4 still a bitty too high but improving
-		double adjust_fff = 1e-4 * (1/dt) * 1; //300 aggressive //100 is a bit slow  //Gotta go fast * 20, add factor of 10 for more aggressive loading //Remove for other cases
+		double adjust_fff = 1e-4 * (1/dt) * 1 * 100; //300 aggressive //100 is a bit slow  //Gotta go fast * 20, add factor of 10 for more aggressive loading //Remove for other cases
 		double adjust_mmm = 10.0 * 1; //1000 is excessive rot //100 is bit too much but less //Try 10  //Default 1
 		
 		//Find overlapping points and get forces and moments for each one (and accumulate)
@@ -1444,6 +1461,207 @@ public:
 		
         return;
     }
+    
+    void fluidInteraction_NovaDEM_Damp_small (const double & Cha, const double & Cva, const double & Chw, const double & Cvw,
+                           const double & rhoice, const double & rhoair, const double & rhowater,
+                           const double & hice, double & hair, double & hwater, Vector2d & Ua, Vector2d & Uw,
+                           Vector2d & fluidForceha, Vector2d & fluidForcehw, Vector2d & fluidForceh,
+                           Vector2d & fluidForceva, Vector2d & fluidForcevw, Vector2d & fluidForcev,
+                           Vector2d & ppv, Vector2d & ppvn, Vector2d & midp, Vector2d & fluidForce, double & fluidMoment, 
+                           size_t & tstep, double & slope_dir,  double & flowangle,  double & flowforce, const Vector2d & offset, size_t & cell_sizex, size_t & cell_sizey, vector<Vector2d> & Uwg, const size_t & x_cells, const size_t & y_cells, const vector<Vector2d> & fluid_coord, size_t & index_i, double & dt, vector<double> & dampMat) 
+    {
+
+		//Initialize forces and moments
+		Vector2d force_out;
+		force_out(0) = 0.00;
+		force_out(1) = 0.00;
+		double moment_out = 0.00;
+		Vector2d fluid_drag_force;
+		
+		//Find grain centroid in terms of global coordinates (not local)
+		Vector2d floeLocation = _position; //Use points for area
+		
+		//double adjust_fff = 1e-4 * (1/0.000007) * 1; //0.01 too weak for mini alone //1e-4 WORKS!!!! with 1/dt   ####1e3 few, 1e7 too much, even 5e3 too much //Initially 1e2 seems okay but still tooooo much , 5e-2 still too high converge, 5e-4 still a bitty too high but improving
+		double adjust_fff = 1e-4 * (1/dt) * 1 * 100; //300 aggressive //100 is a bit slow  //Gotta go fast * 20, add factor of 10 for more aggressive loading //Remove for other cases
+		double adjust_mmm = 10.0 * 1; //1000 is excessive rot //100 is bit too much but less //Try 10  //Default 1
+		
+		//Find overlapping points and get forces and moments for each one (and accumulate)
+		double floeArea = 0;
+    	size_t n = _pointList.size();
+
+    	for (size_t i = 0; i < n-1; i++)
+    	{
+    		floeArea += ( _pointList[i](0) * _pointList[i+1](1) -  _pointList[i](1) * _pointList[i+1](0) ); 
+    	}
+    	floeArea += (_pointList[n-1](0) * _pointList[0](1) -  _pointList[n-1](1) * _pointList[0](0) ); 
+
+    	floeArea = 0.5*abs(floeArea);
+        
+        //Assume regular DEM is very small (no shape effects)
+        //A. If floe is smaller than cell size, add an if and use nearest grid point function round_Ocean to find force proportional to floe area 
+		double dampG;
+		if (isnan(floeArea) == false){
+    		if (floeArea < (cell_sizex * cell_sizey)){
+                //Assign current velocity
+                Uw = round_OceanV(_position, Uwg, x_cells, y_cells, offset);
+                dampG = round_Ocean(_position, dampMat, x_cells, y_cells, offset);
+                //SKIN DRAG SIMPLE
+                fluid_drag_force = rhowater*Chw*(Uw-_velocity).norm()*(Uw-_velocity) * floeArea;	
+                
+                force_out(0) += fluid_drag_force(0) * adjust_fff * dampG;
+                force_out(1) += fluid_drag_force(1) * adjust_fff * dampG;
+                
+                //Based on centroid location
+                //double dist_x = pt_compare(0) - floeLocation(0);
+                //double dist_y = pt_compare(1) - floeLocation(1);
+                //moment_out += dist_x * force_out(1) * adjust_mmm;  //Moment due to y force using x dist.
+                //moment_out += -1.0 * dist_y * force_out(0) * adjust_mmm;  //Moment due to x force using y dist.
+                moment_out += 0.00; //Too small to add moment //CHECK THIS!!!!
+                //cout << "CASE A: Veeeery small floe compared to grid!!!" << endl;
+    		}
+    		else{
+    		    cout << "Error: DO NOT USE NORMAL DEM!!!" << endl;
+    		    cout << "Floe area: " << floeArea << " cell size: " << cell_sizex * cell_sizey << endl;
+    		    exit(1);
+    		}
+		}
+		else
+		{
+		    cout << "NAN points, check FORCES!!!!!" << endl;
+		    cout << "Position X: " << _position(0) << " Position Y: " << _position(1) << " id: " << index_i << endl;
+		}
+		
+		//Save values for output
+		fluidForce = force_out;
+		fluidMoment = moment_out;
+		
+		//Control
+		//cout << "Fluid force: " << fluidForce(0) << " " << fluidForce(1) << endl;
+		//cout << "Fluid moment: " << fluidMoment << endl;
+		
+        return;
+    }
+    
+    //Constant water and air velocities        //Uses only a simple drag force, no skin drag moment assuming center of mass application only
+    void fluidInteraction_NovaDEM_Damp_big (const double & Cha, const double & Cva, const double & Chw, const double & Cvw,
+                           const double & rhoice, const double & rhoair, const double & rhowater,
+                           const double & hice, double & hair, double & hwater, Vector2d & Ua, Vector2d & Uw,
+                           Vector2d & fluidForceha, Vector2d & fluidForcehw, Vector2d & fluidForceh,
+                           Vector2d & fluidForceva, Vector2d & fluidForcevw, Vector2d & fluidForcev,
+                           Vector2d & ppv, Vector2d & ppvn, Vector2d & midp, Vector2d & fluidForce, double & fluidMoment, 
+                           size_t & tstep, double & slope_dir,  double & flowangle,  double & flowforce, const Vector2d & offset, size_t & cell_sizex, size_t & cell_sizey, vector<Vector2d> & Uwg, const size_t & x_cells, const size_t & y_cells, const vector<Vector2d> & fluid_coord, size_t & index_i, double & dt, vector<double> & dampMat, double & curr_factor) 
+    {
+
+		//Initialize forces and moments
+		Vector2d force_out;
+		force_out(0) = 0.00;
+		force_out(1) = 0.00;
+		double moment_out = 0.00;
+		Vector2d fluid_drag_force;
+		double dampG;
+		
+		//Find grain centroid in terms of global coordinates (not local)
+		Vector2d floeLocation = _position; //Use points for area
+		
+		//double adjust_fff = 1e-4 * (1/dt) * 1 * 100 * 1.0 * 0.1; //1007 0.01 //1006 0.1 //1008 0.001   //NEW: //0.001 small RT, larger RT try 0.0001 for 10x step is to adjust strength of velocity drag in real time   1/3 is to make arbitrary similar to idealized periodic currents //300 aggressive //100 is a bit slow  //Gotta go fast * 20, add factor of 10 for more aggressive loading //Remove for other cases
+		//double current_factor = 1.0; //Default 100
+		double current_factor = curr_factor; //Default 100
+		double adjust_fff = 1e-4 * (1/dt) * 1.0 * current_factor * 1.0; //100
+		double adjust_mmm = 10.0 * 1; //1000 is excessive rot //100 is bit too much but less //Try 10  //Default 1    
+		
+		//Find overlapping points and get forces and moments for each one (and accumulate)
+		double floeArea = 0;
+    	size_t n = _pointList.size();
+
+    	for (size_t i = 0; i < n-1; i++)
+    	{
+    		floeArea += ( _pointList[i](0) * _pointList[i+1](1) -  _pointList[i](1) * _pointList[i+1](0) ); 
+    	}
+    	floeArea += (_pointList[n-1](0) * _pointList[0](1) -  _pointList[n-1](1) * _pointList[0](0) ); 
+
+    	floeArea = 0.5*abs(floeArea);
+		
+		
+		bool small_floe = false;
+		bool nocontact = true; //For fringe sized floes
+		
+		if (isnan(floeArea)){
+		    cout << "ERROR: check position update, NAN area, check forces!!!" << endl;
+		}
+        
+        //A. If floe is smaller than cell size, add an if and use nearest grid point function round_Ocean to find force proportional to floe area 
+		if (floeArea < (cell_sizex * cell_sizey)){
+		    small_floe = true;
+            //Assign current velocity
+            Uw = round_OceanV(_position, Uwg, x_cells, y_cells, offset);
+            dampG = round_Ocean(_position, dampMat, x_cells, y_cells, offset);
+            //SKIN DRAG SIMPLE
+            fluid_drag_force = rhowater*Chw*(Uw-_velocity).norm()*(Uw-_velocity) * floeArea;	
+            
+            force_out(0) += fluid_drag_force(0) * adjust_fff * dampG;
+            force_out(1) += fluid_drag_force(1) * adjust_fff * dampG;
+            
+            //Based on centroid location
+            //double dist_x = pt_compare(0) - floeLocation(0);
+            //double dist_y = pt_compare(1) - floeLocation(1);
+            //moment_out += dist_x * force_out(1) * adjust_mmm;  //Moment due to y force using x dist.
+            //moment_out += -1.0 * dist_y * force_out(0) * adjust_mmm;  //Moment due to x force using y dist.
+            moment_out += 0.00; //Too small to add moment
+            //cout << "CASE A: Veeeery small floe compared to grid!!!" << endl;
+		}
+		
+		//B. Find all drag cell forces for larger floes (usual case)
+		if (small_floe == false){
+    		for (size_t i = 0; i < y_cells; i++) {
+                for (size_t j = 0; j < x_cells; j++) {
+                   
+                    Vector2d pt_compare = fluid_coord[j+i*x_cells];
+                    bool contact_p = under_iceDEM(pt_compare);
+    
+                    
+                    if (contact_p)
+                    {
+                        //Assign current velocity
+                        Uw = Uwg[j+i*x_cells];
+                        dampG = dampMat[j+i*x_cells];
+                        //SKIN DRAG SIMPLE
+    		            fluid_drag_force = rhowater*Chw*(Uw-_velocity).norm()*(Uw-_velocity) * (cell_sizex * cell_sizey);	
+                        
+                        force_out(0) += fluid_drag_force(0) * adjust_fff * dampG;
+                        force_out(1) += fluid_drag_force(1) * adjust_fff * dampG;
+                        
+                        //Based on centroid location
+                        double dist_x = pt_compare(0) - floeLocation(0);
+                        double dist_y = pt_compare(1) - floeLocation(1);
+                        moment_out += dist_x * force_out(1) * adjust_mmm;  //Moment due to y force using x dist.
+                        moment_out += -1.0 * dist_y * force_out(0) * adjust_mmm;  //Moment due to x force using y dist.
+                        nocontact = false;
+                    }
+                }    
+            } 
+		}
+		
+		//C. Extreme case, for fringe floe larger than size resolution but not intersecting any grid points
+		if (small_floe == false && nocontact == true){
+            //Assign current velocity
+            Uw = round_OceanV(_position, Uwg, x_cells, y_cells, offset);
+            dampG = round_Ocean(_position, dampMat, x_cells, y_cells, offset);
+            //SKIN DRAG SIMPLE
+            fluid_drag_force = rhowater*Chw*(Uw-_velocity).norm()*(Uw-_velocity) * floeArea;	
+            
+            force_out(0) += fluid_drag_force(0) * adjust_fff * dampG;
+            force_out(1) += fluid_drag_force(1) * adjust_fff * dampG;
+            
+            moment_out += 0.00; //Still too small to add moment
+		}
+		
+		//Save values for output
+		fluidForce = force_out;
+		fluidMoment = moment_out;
+		
+        return;
+    }
+
     
     //For loading BCs
     //Simpler function for regular
@@ -2611,7 +2829,7 @@ public:
     
     //Change Aug 22, 2022
     void TemperatureModif (double Tair, double Twater, const double & dt, double dh, const double alphaice, double meltTemp, double meltid, double & meltVin, size_t & tstep, const double & KIc,  const double afactor,  const double & fdim, const size_t & START_TEMP, const double & Khor, const double & meltVSun, const size_t & melt_flag, const size_t & dstep, const vector<Vector2d> & fluid_coord, const size_t & x_cells, const size_t & y_cells, vector<double> & oceanTemp, const Vector2d & offset,
-                           double & loss_mcv_temp, double & loss_mcv_solar_temp, double & loss_mcv_ocean_temp)
+                           double & loss_mcv_temp, double & loss_mcv_solar_temp, double & loss_mcv_ocean_temp, double & hlat)
     //void TemperatureModif (double Tair, double Twater, const double & dt, double dh, const double alphaice, double meltTemp, double meltid, double & meltVin, size_t & tstep, const double & KIc,  const double afactor,  const double & fdim, const size_t & START_TEMP, const double & Khor, const double & meltVSun, const size_t & melt_flag, const size_t & dstep, const vector<Vector2d> & fluid_coord, const size_t & x_cells, const size_t & y_cells, vector<double> & oceanTemp, const Vector2d & offset) //double Utemper[80000], double Utemper0[80000] 
     {      
          
@@ -3067,6 +3285,7 @@ public:
         	}
 
         	//cout << "THICKNESS UPDATE ON ICE" << endl;
+        	double ct_hlat = 0.0;
         	double ave_thick = 0;
         	size_t ct_ave_thick = 0;  
         	double ave_solar = 0;
@@ -3095,6 +3314,10 @@ public:
 	                //if (Thickvec[(jj*_lset.getXdim())+ii] <= 0.0 || Thickvec[(jj*_lset.getXdim())+ii] > 2 )  //Too low or high thick is not ok
 	            	{
 	            		new_outcount++;
+	            		if (Thickvec0[(jj*_lset.getXdim())+ii] > 0.0){
+	            		    ct_hlat += 1.0;
+	            		    hlat += Thickvec0[(jj*_lset.getXdim())+ii];
+	            		}
 	            	}
 	            	else
 	            	{
@@ -3108,6 +3331,14 @@ public:
 
             }
             _Mthick.changeLevelset(Thickvec); //Update LS vector in Mthick to use later in Reinit2D
+            
+            //Get average hlat thickness
+            if (ct_hlat > 0.0){
+                hlat /= ct_hlat;
+            }
+            else{
+                hlat = 0.0;
+            }
             
             //Change Aug 22, 2022
             //BEGIN
@@ -3628,9 +3859,10 @@ public:
 		            	Tvecsmooth((j*_lset.getXdim())+ii) = -Tvecsm[(j*_lset.getXdim())+ii];   //Need to invert if you are using positive Thickness for this Reinit
 		            }
 		        }    
-
+                        
+	                //WARNING-REINCLUDE LSM-LIB	
+		        //Essential for lateral melt. Needs LSM-LIB, otherwise use commented block above 
 		        reinit2D(Tvecsmooth, _lset.getXdim(), _lset.getYdim());
-
 
 		        for (size_t jj = 0; jj<_lset.getYdim(); jj++) 
 				{	                 			                
@@ -8420,6 +8652,31 @@ public:
         //cout << "TT Theta: " << _theta << endl;
 	}
 	
+	//Control Velocity from Data
+	void takeTimestepVelocity(double & speed, double & angle, const double & moment, const double & gDamping, const double & dt) {
+        double dts = 1.0; //Actually it is 1 second
+        double rad_angle = angle*3.141592653589793/180.0; //Convert from degrees to radians
+		_velocity(0) = speed * cos(rad_angle);
+		_velocity(1) = speed * sin(rad_angle);
+		
+		_omega = 1/(1+gDamping*dt/2)*( (1-gDamping*dt/2)*_omega + dt*moment/_momentInertia);
+		double cosd = cos(_omega*dt);
+		double sind = sin(_omega*dt);
+		
+		// must update the points
+		for (size_t ptid = 0; ptid < _pointList.size(); ptid++) {
+		    //Rotation
+			_pointList[ptid] << (_pointList[ptid](0)-_position(0))*cosd - (_pointList[ptid](1)-_position(1))*sind,
+								(_pointList[ptid](0)-_position(0))*sind + (_pointList[ptid](1)-_position(1))*cosd;
+			//Displacement
+			_pointList[ptid] += _position + _velocity*dts;
+		}
+		_position = _position + dts*_velocity;
+		_theta = _theta + dt*_omega;
+
+	}
+	
+	
 	//For load grains
 	void takeTimestepLoad(const Vector2d & force, const double & moment, const double & gDamping, const double & dt, Vector2d & tryvel) {
 	    //Apply this reset for a time step after breakage and then ignore?
@@ -8809,6 +9066,11 @@ public:
 	void changeThickness (const double & thicknew){ 
 	 	_thick= thicknew;
 	}
+	
+	void changeThickness0 (const double & thicknew){ 
+	 	_thick0 = thicknew;
+	}
+
 
 
 

@@ -8,7 +8,7 @@ from matplotlib.collections import PatchCollection
 from multiprocessing import Pool
 import matplotlib
 #matplotlib.use('Agg')
-from scipy.optimize import curve_fit
+#from scipy.optimize import curve_fit #Fix curve fit issue after HPC update.
 import sys
 import shutil
 
@@ -22,6 +22,39 @@ import csv
 import cv2
 import numpy as np
 import glob
+
+from matplotlib.transforms import Bbox
+from mpl_toolkits.axes_grid1 import make_axes_locatable, axes_size
+
+class RemainderFixed(axes_size.Scaled):
+    def __init__(self, xsizes, ysizes, divider):
+        self.xsizes =xsizes
+        self.ysizes =ysizes
+        self.div = divider
+
+    def get_size(self, renderer):
+        xrel, xabs = axes_size.AddList(self.xsizes).get_size(renderer)
+        yrel, yabs = axes_size.AddList(self.ysizes).get_size(renderer)
+        bb = Bbox.from_bounds(*self.div.get_position()).transformed(self.div._fig.transFigure)
+        w = bb.width/self.div._fig.dpi - xabs
+        h = bb.height/self.div._fig.dpi - yabs
+        return 0, min([w,h])
+
+
+def make_square_axes_with_colorbar(ax, size=0.1, pad=0.1):
+    """ Make an axes square, add a colorbar axes next to it, 
+        Parameters: size: Size of colorbar axes in inches
+                    pad : Padding between axes and cbar in inches
+        Returns: colorbar axes
+    """
+    divider = make_axes_locatable(ax)
+    margin_size = axes_size.Fixed(size)
+    pad_size = axes_size.Fixed(pad)
+    xsizes = [pad_size, margin_size]
+    yhax = divider.append_axes("right", size=margin_size, pad=pad_size)
+    divider.set_horizontal([RemainderFixed(xsizes, [], divider)] + xsizes)
+    divider.set_vertical([RemainderFixed(xsizes, [], divider)])
+    return yhax
 
 
 #Accumulated Sum
@@ -111,6 +144,34 @@ def zeros_filter_slope(gsd_dataD0, gsd_dataNF0):
 def objective(x, a, b):
     return a * x + b
 
+def estimate_coef(x, y):
+    # number of observations/points
+    n = np.size(x)
+    
+    # mean of x and y vector
+    m_x = np.mean(x)
+    m_y = np.mean(y)
+    
+    xpy = np.zeros(n)
+    xpx = np.zeros(n)
+    for i in range(n):
+        xpy[i] = y[i] * x[i]
+        xpx[i] = x[i] * x[i]
+    
+    # calculating cross-deviation and deviation about x
+    SS_xy = np.sum(xpy) - n*m_y*m_x
+    SS_xx = np.sum(xpx) - n*m_x*m_x
+    
+    # calculating regression coefficients
+    b_1 = SS_xy / SS_xx
+    b_0 = m_y - b_1*m_x
+    
+    return (b_0, b_1)
+
+#Temporary function while this is fixed and we do not need curve fit
+def curve_fit(objective, x, y): #[amean, bmean] a is slope, 1 is only
+    bM, aM = estimate_coef(x, y)
+    return [aM, bM], 1
 
 #GSD Slope Linear
 def gsd_slope_linear(objective, x, y):
@@ -252,6 +313,7 @@ def GSD_Comparison_Error(FileImg, FileData, DayNumber, outDir):
 #year = 2020;
 #year = 2018;
 year = int(sys.argv[3])
+seedNo = int(sys.argv[4]) #Seed temp
 
 if year == 2020:
     main_dir = "./V_P_2020/" #2020
@@ -274,7 +336,8 @@ if create_folder:
         #mainOutputfolder = "./Output/SeaIce2020N_" + str(caseNo) + "/" #2020
     elif year == 2018:
         #mainOutputfolder = "./Output/SeaIce_" + str(caseNo) + "/" #2018
-        mainOutputfolder = "./Output/SeaIce2018_" + str(caseNo) + "/" #2018
+        #mainOutputfolder = "./Output/SeaIce2018_" + str(caseNo) + "/" #2018
+        mainOutputfolder = "./Output/SeaIce2018_" + str(caseNo) + "_" + str(seedNo) + "/" #2018 #Seed temp
         #mainOutputfolder = "./Output/SeaIce2018Prob_" + str(caseNo) + "/" #2018 #PROB. CHANGE
         #mainOutputfolder = "./Output/SeaIce2018h_" + str(caseNo) + "/" #2018
     
@@ -391,7 +454,7 @@ numberFinesV     = np.loadtxt(numberFinesFile)
 #Turn on or off certain modules
 oceanGridPlot = True #Plot grid setup
 oceanGridPlot_img = True #Plot grid images
-ocean_temp_grid_sample = True #For result output only
+ocean_temp_grid_sample = False #For result output only
 Thick_Output = False #Plot thickness of each coarse floe
 Fine_Output = False #Output fine positions
 fine_grad = False #Provide details of thickness changes
@@ -399,6 +462,10 @@ LS_plotting = 0 #TURN OFF, FOR MELT DEBUGGING
 floe_plot = True #Plot floe images as patches
 centroid_ave_cal = True #Calculate floe velocities for calibration
 video_gen = True  #Generate video from floe images
+if int(caseNo) == 315 or int(caseNo) == 280 or int(caseNo) == 1348 or int(caseNo) == 1971 or int(caseNo) == 1972 or int(caseNo) == 1973:
+    extra_temp = True
+else:
+    extra_temp = False #Generate video of temperature and floe contours
 ###########################################################################
 
 if oceanGridPlot:
@@ -506,7 +573,7 @@ if floe_plot:
         finepositDat.append(finepositDatT)
 
 #print(pointsLS)
-dot2 = 0 #to go through all data
+dot2 = 0 #to go through all of data
 
 if LS_plotting == 1:
     npLS = 100
@@ -809,6 +876,48 @@ def write_img(step):
         plt.xlabel('X')
         plt.ylabel('Y')
         plt.savefig(figDir7 + '/step_' + ('%d' % step) + '.png', format='png')
+        plt.close(figGrid)
+        
+    #Temperature and floe contours
+    if extra_temp and ( int(step) == 7 or int(step) == 10 or int(step) == 12 or int(step) == 15 or int(step) == 20 or int(step) == 25 or int(step) == 30 ):
+        print("---00---Extra Temp!!!!")
+        figGrid, ax = plt.subplots(figsize = (15,15))
+        plt.title('Ocean Temperature at step: ' + str(step))
+        #pCol = PatchCollection(patches, facecolors='none',edgecolors='red', lw=0.4)
+        #pCol2 = PatchCollection(patches, facecolors='red', edgecolors='none', alpha=1)
+        #ax.add_collection(pCol)
+        #ax.add_collection(pCol2)
+        plt.scatter(xOGrid, yOGrid, c = oceanGridV[step])
+        pCol = PatchCollection(patches, facecolors='none',edgecolors='red', lw=0.65)
+        ax.add_collection(pCol)
+        plt.clim(-2.0,1.5) #try out
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        ax.set_xticks(np.arange(0, 400, 50))
+        ax.set_yticks(np.arange(0, 400, 50))
+        #plt.grid()
+        cax = make_square_axes_with_colorbar(ax, size=0.5, pad=0.15)
+        plt.colorbar(cax=cax)
+        plt.savefig(figDir7 + '/GExtra_step_' + ('%d' % step) + '.png', format='png')
+        plt.close(figGrid)
+
+    if extra_temp and ( int(step) == 7 or int(step) == 10 or int(step) == 12 or int(step) == 15 or int(step) == 20 or int(step) == 25 or int(step) == 30 ):
+        print("---00---Extra Temp!!!!")
+        figGrid, ax = plt.subplots(figsize = (15,15))
+        plt.title('Ocean Temperature at step: ' + str(step))
+        plt.scatter(xOGrid, yOGrid, c = 'white')
+        plt.colorbar()
+        plt.clim(-2.0,2.0) #try out
+        pCol = PatchCollection(patches, facecolors='none',edgecolors='red', lw=0.1)
+        pCol2 = PatchCollection(patches, facecolors='red', edgecolors='none', alpha=1)
+        ax.add_collection(pCol)
+        ax.add_collection(pCol2)
+        ax.set_xticks(np.arange(0, 400, 50))
+        ax.set_yticks(np.arange(0, 400, 50))
+        plt.xlabel('X')
+        plt.ylabel('Y')
+        #plt.grid()
+        plt.savefig(figDir7 + '/GExtra_stepF_' + ('%d' % step) + '.png', format='png')
         plt.close(figGrid)
         
     # #Temporary plot for explaining method
@@ -1336,6 +1445,11 @@ aveThick = []
 globalOceanTemp = []
 aveThickC = []
 aveThickF = []
+netFlux = []
+netFlux2 = []
+latFlux = []
+vertFlux = []
+lvRatio = []
 for i in range(len(concV)):
     timeC.append(concV[i][0])
     nArea.append(concV[i][1])
@@ -1347,6 +1461,11 @@ for i in range(len(concV)):
     globalOceanTemp.append(concV[i][7])
     aveThickC.append(concV[i][8])
     aveThickF.append(concV[i][9])
+    netFlux.append(concV[i][10])
+    netFlux2.append(concV[i][11])
+    latFlux.append(concV[i][12])
+    vertFlux.append(concV[i][13])
+    lvRatio.append(concV[i][14])
     
 figG2 = plt.figure(figsize=(10,10))
 plt.plot(timeC,nArea,'ro-')
@@ -1425,6 +1544,47 @@ plt.plot(timeC,aveThickF,'g*', label='Average Thickness Fine: Simulation')
 plt.legend()
 plt.title('Evolution of Average Thickness')
 plt.savefig(figDir8 + 'SeaIce_AveThick_Compare.png', format='png')
+plt.close()
+
+#Plot Net Flux
+save_flux_vec = []
+figFlux = plt.figure(figsize=(10,10))
+plt.xlabel('Time')
+plt.ylabel('Net Flux')
+dataplot = np.zeros(len(timeC))
+dataplot2 = np.zeros(len(timeC))
+for i in range(len(timeC)):
+    dataplot[i] = netFlux[i]
+    dataplot2[i] = netFlux2[i]
+    attachVec = [ int(i), dataplot[i], dataplot2[i], latFlux[i], vertFlux[i], lvRatio[i] ]
+    save_flux_vec.append(attachVec)
+plt.plot(timeC,dataplot,'k*', label='Net Flux')
+plt.plot(timeC,dataplot2,'r*', label='Net Flux 2')
+plt.legend()
+plt.title('Evolution of Net Flux')
+plt.savefig(figDir8 + 'NetFluxPlot.png', format='png')
+plt.close()
+
+np.savetxt(figDir8 + 'Net_Flux_'+str(caseNo)+'.dat', save_flux_vec, fmt='%d %.8f %.8f %.8f %.8f %.8f')
+
+#Lat vs. Vert.
+figFlux = plt.figure(figsize=(10,10))
+plt.xlabel('Time')
+plt.ylabel('Flux (W/m2)')
+plt.plot(timeC,latFlux,'g-*', label='Lateral Flux')
+plt.plot(timeC,vertFlux,'r-*', label='Vertical Flux')
+plt.legend()
+plt.title('Evolution of Lateral Versus Vertical Flux')
+plt.savefig(figDir8 + 'LatvsVertFluxPlot.png', format='png')
+plt.close()
+
+#Ratio plot
+figFlux = plt.figure(figsize=(10,10))
+plt.xlabel('Time')
+plt.ylabel('Ratio')
+plt.plot(timeC,lvRatio,'k-*', label='Lateral Flux')
+plt.title('Evolution of Lateral Versus Vertical Ratio')
+plt.savefig(figDir8 + 'LatvsVertFluxRatio.png', format='png')
 plt.close()
 
 #Plot Just Thickness Data Series
@@ -1655,6 +1815,20 @@ plt.ylabel('Sea Ice Concentration (%)')
 plt.title('Evolution of Sea Ice Concentration: Fines')
 plt.savefig(figDir8 + 'SeaIce_Concentration_CompareF.png', format='png')
 plt.close()
+
+#Print useful outputs for comparison
+#Time #Sim temp #Sim CC #SimCF
+dataVprint = []
+for i in range(len(timeC)):
+    vecT = [ timeC[i], globalOceanTemp[i], ConcB[i], ConcF[i]  ] #Other file for timeCData[i], dataConcC[i], dataConcF[i], 
+    dataVprint.append(vecT)
+np.savetxt(figDir8+'TempConcVals_'+str(caseNo)+'.dat', dataVprint, fmt='%.5f %.5f %.5f %.5f')
+
+dataVdata = []
+for i in range(len(timeCData)):
+    vecT = [timeCData[i], dataConcC[i], dataConcF[i]]
+    dataVdata.append(vecT)
+np.savetxt(figDir8+'ConcData_'+str(caseNo)+'.dat', dataVdata, fmt='%.5f %.5f %.5f')
 
 #Plot Diameters (Max, Mean, Min, nFloes)
 nFloes = numberg
@@ -2039,7 +2213,35 @@ if video_gen:
     for i in range(len(img_array)):
         out.write(img_array[i])
     out.release()
-    
+
+    ##VIDEOS TEMP
+    #INPUT / OUTPUT LOCATIONS
+    if oceanGridPlot_img:
+        datadirin = figDir7
+        datadirout = figDir7
+        
+        #DIRECTORY
+        vid_add = datadirin
+        #Number of frames
+        frames = len(glob.glob1(vid_add,"*.png"))
+        
+        img_array = []
+        
+        for i in range(0,frames):
+            vid_num = 'step_'+ str(i)
+            filename = vid_add + vid_num + '.png'
+            img = cv2.imread(filename)
+            height, width, layers = img.shape
+            size = (width,height)
+            img_array.append(img)
+        
+        
+        out = cv2.VideoWriter(datadirout + 'VideoPointsTemp.mp4',cv2.VideoWriter_fourcc(*'mp4v'), 5, size) #10 frame default
+        #out = cv2.VideoWriter('project.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, size)
+        
+        for i in range(len(img_array)):
+            out.write(img_array[i])
+        out.release()
     
     ###INPUT / OUTPUT LS
     if LS_plotting == 1:

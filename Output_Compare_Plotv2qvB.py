@@ -645,7 +645,7 @@ def mass_process(caseNo, year):
 start_case = int(sys.argv[1])
 end_case = int(sys.argv[2])
 year = int(sys.argv[3])
-qvfix = int(sys.argv[4]) #Use 1500 #140 qv
+qvfix = int(sys.argv[4]) #Use 1500 #140 qv #Use 240 here
 caseL = (end_case-start_case)+1;
 vec_export_text = []
 
@@ -662,7 +662,7 @@ if year == 2018:
     else:
         #outputFolder2 = "./Output/Analysis_2018_S_"+str(Satm)+"/"
         if qv_val:
-            outputFolder2 = "./Output/Analysis_2018Int_qv_"+str(qvfix)+"_Testv2/"
+            outputFolder2 = "./Output/Analysis_2018Int_Snew_"+str(qvfix)+"_Testv2/"
         else:
             outputFolder2 = "./Output/Analysis_2018Int_B_"+str(Satm)+"_kappa/"
 elif year == 2020:
@@ -725,7 +725,7 @@ else:
 #Satm_range = [240,250,260,270,290,310,320]
 
 nBreakRange = [500, 1000, 1500, 2000, 3000, 40000]
-Srange = [150, 200, 240, 280, 330]
+Srange = [10, 25, 50, 100, 140, 180, 250] #Actually qv
 
 valid_cases0 = []
 bad_cases = []
@@ -765,13 +765,14 @@ elif year == 2018:
     main_dir = "./V_P_2018/"
 
 #Get slope value for alpha error #Let's skip for now
-#mainVfolder = main_dir + "Visualization_" + "Test_qv_nb_alter_" + str(315) + "/"
-#slope_dataFolder = mainVfolder+'Output_Comparison/GSD_Compare/'
-#[alphaOr, vecOr, slopeOr] = get_dataslope(slope_dataFolder)
-# [alphaOr, vecOr, slopeOr] = [0, 0 , 0]
-# #Adjust for errors in image segmentation
-# slopeOr[0] = 2.59 
-# slopeOr[1] = 2.5
+mainVfolder = main_dir + "Visualization_" + "Test_qv_nb_alter_" + str(315) + "/"
+slope_dataFolder = mainVfolder+'Output_Comparison/GSD_Compare/'
+[alphaOr, vecOr, slopeOr] = get_dataslope(slope_dataFolder)
+#[alphaOr, vecOr, slopeOr] = [0, 0 , 0]
+#Adjust for errors in image segmentation
+#slopeOr = 2.59 
+slopeOr[0] = 2.93
+slopeOr[1] = 2.9
 
 def get_slope(slope_dataFolder):
     simFile = slope_dataFolder + 'Slope_sim.dat'
@@ -799,13 +800,14 @@ def errorDS(dataX, dataY, simX, simY):
 
 
 #Get slope value for alpha error #Let's skip for now
-#mainVfolder = main_dir + "Visualization_" + "Test_qv_nb_alter_" + str(315) + "/"
-#slope_dataFolder = mainVfolder+'Output_Comparison/GSD_Compare/'
-#[alphaOr, vecOr, slopeOr] = get_dataslope(slope_dataFolder)
-# [alphaOr, vecOr, slopeOr] = [0, 0 , 0]
-# #Adjust for errors in image segmentation
-# slopeOr[0] = 2.59 
-# slopeOr[1] = 2.5
+mainVfolder = main_dir + "Visualization_" + "Test_qv_nb_alter_" + str(315) + "/"
+slope_dataFolder = mainVfolder+'Output_Comparison/GSD_Compare/'
+[alphaOr, vecOr, slopeOr] = get_dataslope(slope_dataFolder)
+#[alphaOr, vecOr, slopeOr] = [0, 0 , 0]
+#Adjust for errors in image segmentation
+#slopeOr = 2.59 
+slopeOr[0] = 2.93
+slopeOr[1] = 2.9
 
 #For MultiD
 Vec_MultiD = []
@@ -834,7 +836,7 @@ for k in range(len(Srange)):
     valid_cases1 = []
     for i in range(len(valid_cases0)):
         [nBreak, qvert, Qatm] = read_params(valid_cases0[i], year);
-        if Qatm == qvert_compare:
+        if qvert == qvert_compare:
             valid_cases1.append(valid_cases0[i])
 
     if len(valid_cases1) < 1:
@@ -869,11 +871,11 @@ for k in range(len(Srange)):
                     massLostMax = massLOST
                 
                 #Get alpha error   #Let's skip error for now
-                #mainVfolderB = main_dir + "Visualization_" + "Test_qv_nb_" + str(valid_cases1[ii]) + "/"
-                #slope_dataFolderB = mainVfolderB+'Output_Comparison/GSD_Compare/'
-                #[aaaa, vecTB, slopeVB] = get_slope(slope_dataFolderB)
-                #alpha = errorDS(vecOr, slopeOr, vecTB, slopeVB)
-                alpha = 0
+                mainVfolderB = main_dir + "Visualization_" + "Test_qv_nb_" + str(valid_cases1[ii]) + "/"
+                slope_dataFolderB = mainVfolderB+'Output_Comparison/GSD_Compare/'
+                [aaaa, vecTB, slopeVB] = get_slope(slope_dataFolderB)
+                alpha = errorDS(vecOr, slopeOr, vecTB, slopeVB)
+                #alpha = 0
                 
                 if status_good == False:
                     massProcessbad.append([valid_cases1[ii], qvert_compare, nBreak_compare])
@@ -994,7 +996,7 @@ for k in range(len(nBreakRange)):
         qvert_compare = Srange[j]
         for ii in range(len(valid_cases1)):
             [nBreak, qvert, Qatm] = read_params(valid_cases1[ii], year);
-            if Qatm == qvert_compare:      
+            if qvert == qvert_compare:      
                 [aa, bb, slope_coarse, slope_fine, slope_total] = gen_values_per_case(valid_cases1[ii], year, nDays)
                 qv_vec.append(Qatm)
                 Cslope_vec.append(abs(slope_coarse))
@@ -1137,7 +1139,7 @@ elif year == 2020:
 
 xmin = [((drhoi*dLf*deltah) / (deltaT*25))/86400/nDaysxy]
 ymin = [Ns * dNf * (1000)/86400/nDaysxy]
-xmin = 240 #240
+xmin = 310 #240
 #Compromise for FSD and concentration
 ymin = 86400 * 1/1500
 yBH = 86400 * 1/1000
@@ -1336,7 +1338,8 @@ contours = plt.contourf(xArr, yArr, zSlopeCArr, 20, cmap='YlOrRd')
 ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    #plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=22)
@@ -1394,7 +1397,8 @@ axes.yaxis.label.set_size(20)
 axes.tick_params(labelsize=18)
 plt.yscale("log")  
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    #plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -1439,7 +1443,8 @@ contours = plt.contourf(xArr, yArr, zSlopeFArr, 19, cmap='YlOrRd')
 ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    #plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=22)
@@ -1493,7 +1498,8 @@ contours = plt.contourf(xArr, yArr, zSlopeTArr, 20, cmap='YlOrRd')
 ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    #plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=22)
@@ -1659,7 +1665,8 @@ contours = plt.contourf(xArr, yArr, ratioVArr, 15, cmap='coolwarm')
 ax.xaxis.set_tick_params(labelsize=18)
 ax.yaxis.set_tick_params(labelsize=18)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    #plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -1713,6 +1720,7 @@ axes.yaxis.label.set_size(20)
 axes.tick_params(labelsize=18)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -1758,6 +1766,7 @@ axes.tick_params(labelsize=15)
 # plt.ylabel('Break Time (days)')
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -1801,6 +1810,7 @@ axes.yaxis.label.set_size(20)
 axes.tick_params(labelsize=18)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -1823,9 +1833,9 @@ fig, ax = plt.subplots(figsize=(11,10))
 #plt.title('Coarse Grain Concentration Inv. Area', size=20)
 #plt.title('Concentration Loss Rate: Coarse', size=25)
 plt.title('Mass Loss Rate: Coarse', size=25)
-plt.plot(xmin,ymin,'k*',markersize=20,label='Obs. Fit', markeredgecolor='black')
-plt.plot(xmin,yBH,'b*',markersize=20,label='High Break', markeredgecolor='blue')
-plt.plot(xmin,yBL,'r*',markersize=20,label='Low Break', markeredgecolor='black')
+# plt.plot(xmin,ymin,'k*',markersize=20,label='Obs. Fit', markeredgecolor='black')
+# plt.plot(xmin,yBH,'b*',markersize=20,label='High Break', markeredgecolor='blue')
+# plt.plot(xmin,yBL,'r*',markersize=20,label='Low Break', markeredgecolor='black')
 # plt.legend(fontsize = 21)
 #contours2 = plt.contour(xArr, yArr, zSlopeCArr, 30)
 
@@ -1857,7 +1867,8 @@ contours = plt.contourf(xArr, yArr, slope_massVArr, 20, cmap='coolwarm') #Mass l
 ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22) 
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=22)
@@ -1891,10 +1902,10 @@ fig, ax = plt.subplots(figsize=(11,10))
 #plt.title('Concentration Loss Rate: Coarse', size=25)
 #plt.title('Normalized Mass Loss Rate: Resolved', size=25)
 plt.title('Mass Loss Rate', size=25)
-plt.plot(xmin,ymin,'k*',markersize=20,label='Obs. Fit', markeredgecolor='black')
-plt.plot(xmin,yBH,'b*',markersize=20,label='High Break', markeredgecolor='blue')
-plt.plot(xmin,yBL,'r*',markersize=20,label='Low Break', markeredgecolor='black')
-plt.legend(fontsize = 21)
+# plt.plot(xmin,ymin,'k*',markersize=20,label='Obs. Fit', markeredgecolor='black')
+# plt.plot(xmin,yBH,'b*',markersize=20,label='High Break', markeredgecolor='blue')
+# plt.plot(xmin,yBL,'r*',markersize=20,label='Low Break', markeredgecolor='black')
+# plt.legend(fontsize = 21)
 #contours2 = plt.contour(xArr, yArr, zSlopeCArr, 30)
 
 #CS = plt.contour(xArr, yArr, zRatioTArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(2,))
@@ -1941,7 +1952,8 @@ contours = plt.contourf(xArr, yArr, slope_massVArr/1e11, 20, cmap='YlOrRd', vmin
 ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22) 
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=22)
@@ -2027,7 +2039,8 @@ contours = plt.contourf(xArr, yArr, n_mass_fVArr, 20, cmap='YlOrRd') #Mass loss
 ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22) 
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=22)
@@ -2112,6 +2125,7 @@ ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=22)
@@ -2196,6 +2210,7 @@ ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=22)
@@ -2330,6 +2345,7 @@ axes.tick_params(labelsize=18)
 plt.yscale("log") 
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -2347,14 +2363,14 @@ fig, ax = plt.subplots(figsize=(11,10))
 #plt.title('Total Concentration Inv. Area', size=20)
 #plt.title('Breakage vs. Melt Dominance: Resolved', size=25)
 plt.title('Breakage vs. Melt', size=25)
-plt.plot(xmin,ymin,'k*',markersize=20,label='Obs. Fit', markeredgecolor='black')
-plt.plot(xmin,yBH,'b*',markersize=20,label='High Break', markeredgecolor='blue')
-plt.plot(xmin,yBL,'r*',markersize=20,label='Low Break', markeredgecolor='black')
-plt.legend(fontsize = 21)
+# plt.plot(xmin,ymin,'k*',markersize=20,label='Obs. Fit', markeredgecolor='black')
+# plt.plot(xmin,yBH,'b*',markersize=20,label='High Break', markeredgecolor='blue')
+# plt.plot(xmin,yBL,'r*',markersize=20,label='Low Break', markeredgecolor='black')
+# plt.legend(fontsize = 21)
 #contours2 = plt.contour(xArr, yArr, ratioIntVArr, 15, colors = 'black')
 CS = plt.contour(xArr, yArr, ratioIntVArr,levels = [1.000000,1.0000001], colors=('k',),linestyles=('-',),linewidths=(3.5,))
 plt.clabel(CS, fmt = '%2.2f', colors = ['k'], fontsize=16)
-CS2 = plt.contour(xArr, yArr, ratioIntVArr, 28, colors=('k',), linestyles=('-',), linewidths=(1.5,))
+CS2 = plt.contour(xArr, yArr, ratioIntVArr, 30, colors=('k',), linestyles=('-',), linewidths=(1.5,))
 plt.clabel(CS2, fmt = '%2.2f', colors = ['k'], fontsize=16)
 #CS3 = plt.contour(xArr, yArr, ratioIntVArr,levels = [1.1200000,1.12000001], colors=('k',),linestyles=('--',),linewidths=(2.0,))
 #plt.clabel(CS3, fmt = '%2.2f', colors = ['k'], fontsize=14)
@@ -2364,7 +2380,7 @@ plt.clabel(CS2, fmt = '%2.2f', colors = ['k'], fontsize=16)
 divnorm=colors.TwoSlopeNorm(vmin=0., vcenter=1., vmax=4.8)
 
 #contours = plt.contourf(xArr, yArr, ratioIntVArr, 15, cmap='coolwarm') #Area bkg/melt ratio
-contours = plt.contourf(xArr, yArr, ratioIntVArr, 28, cmap='coolwarm_r', norm=divnorm, vmin=0.00, vmax=5.60) #Mass loss
+contours = plt.contourf(xArr, yArr, ratioIntVArr, 30, cmap='coolwarm_r', norm=divnorm, vmin=0.00, vmax=5.60) #Mass loss
 #plt.clabel(contours2, contours2.levels, inline=True, fontsize=15)
 #plt.imshow(zSlopeCArr, extent=[x[0], x[-1], y[0], y[-1]], origin='lower', cmap='RdGy', alpha=0.5)
 #plt.clabel(contours, inline=True, fontsize=8, colors='k')
@@ -2378,6 +2394,7 @@ ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=22)
@@ -2434,6 +2451,7 @@ ax.xaxis.set_tick_params(labelsize=20)
 ax.yaxis.set_tick_params(labelsize=20)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=22)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=22)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=22) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=22)
@@ -2466,6 +2484,7 @@ cbar.ax.tick_params(labelsize=15)
 plt.title('Alpha Slope Error', size=15)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -2486,6 +2505,7 @@ cbar.ax.tick_params(labelsize=15)
 plt.title('Coarse Grain Slope', size=15)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -2506,6 +2526,7 @@ cbar.ax.tick_params(labelsize=15)
 plt.title('Fine Slope', size=15)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -2526,6 +2547,7 @@ cbar.ax.tick_params(labelsize=15)
 plt.title('Case Code', size=15)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -2554,18 +2576,21 @@ ax.xaxis.set_tick_params(labelsize=18)
 ax.yaxis.set_tick_params(labelsize=18)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
 
 cax = make_square_axes_with_colorbar(ax, size=0.23, pad=0.15)
 cbar = fig.colorbar(contours, cax=cax, format=matplotlib.ticker.FuncFormatter(myfmt))
-cbar.ax.set_ylabel(r'RMSE \alpha', rotation=90, labelpad=18, size=18)
+cbar.ax.set_ylabel(r'RMSE $\alpha$', rotation=90, labelpad=18, size=18)
 cbar.ax.tick_params(labelsize=18)
 
 plt.savefig(outputFolder2 + "Error_Alpha_FSD_Slope.png")
 plt.close()
 
+print("Alpha Error:")
+print(zErrorAlphaArr)
 
 #####
 # #Same as above but for Error Contours
@@ -2598,6 +2623,7 @@ ax.xaxis.set_tick_params(labelsize=18)
 ax.yaxis.set_tick_params(labelsize=18)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20) 
@@ -2635,6 +2661,7 @@ axes.yaxis.label.set_size(20)
 axes.tick_params(labelsize=15)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -2656,7 +2683,8 @@ axes.xaxis.label.set_size(20)
 axes.yaxis.label.set_size(20)
 axes.tick_params(labelsize=15)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20) 
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -2673,6 +2701,7 @@ cbar.ax.tick_params(labelsize=15)
 plt.title('Coarse Grain Error', size=15)
 if qv_val:
     plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -2692,7 +2721,8 @@ cbar = plt.colorbar()
 cbar.ax.tick_params(labelsize=15)
 plt.title('Fine Error', size=15)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    #plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -2721,7 +2751,8 @@ axes.xaxis.label.set_size(20)
 axes.yaxis.label.set_size(20)
 axes.tick_params(labelsize=15)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    #plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)
@@ -2742,7 +2773,8 @@ axes.xaxis.label.set_size(20)
 axes.yaxis.label.set_size(20)
 axes.tick_params(labelsize=15)
 if qv_val:
-    plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)  
+    #plt.xlabel(r'Solar Heat Flux $S \left(W m^{-2}\right)$', fontsize=20)
+    plt.xlabel(r'Melt Rate - $q_{v} \left(W m^{-2} °C^{-1}\right)$', fontsize=20)
 else: 
     plt.xlabel(r'kHor ($\frac{m^{2}}{s}$)', fontsize=20) 
 plt.ylabel(r'Break Frequency - $B \left(d^{-1}\right)$', fontsize=20)

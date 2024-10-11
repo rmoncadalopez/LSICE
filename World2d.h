@@ -19,27 +19,27 @@
 class World2d {
 
 public:
-	World2d(const Vector2d & offset) :_offset(offset) {_gDamping = 0.; _dt = 0.; _ngrains = 0; _maxId = 0; _only_dem = false;}
+  World2d(const Vector2d & offset) :_offset(offset) {_gDamping = 0.; _dt = 0.; _ngrains = 0; _maxId = 0; _only_dem = false;}
 
-	// Cone + wallGrains + grains + periodic bcs in cell of particular offset         //Walls instead of offset??
-	World2d(const vector<Grain2d> & grains, vector<Wall2d> & walls,
-			const Vector2d & offset, const double & dt, const double & gDamping, size_t & stepup, double & slopedir, double & flowangle, double & flowforce, const FracProps2D FracProps, const vector<Grain2d> & grainsWall,
+  // Cone + wallGrains + grains + periodic bcs in cell of particular offset         //Walls instead of offset??
+  World2d(const vector<Grain2d> & grains, vector<Wall2d> & walls,
+      const Vector2d & offset, const double & dt, const double & gDamping, size_t & stepup, double & slopedir, double & flowangle, double & flowforce, const FracProps2D FracProps, const vector<Grain2d> & grainsWall,
             const vector<Vector2d> & fluid_coord, vector<Vector2d> & Uwg, const size_t & x_cells, const size_t & y_cells, vector<double> & oceanTemp,
             const size_t & START_TEMP, const double & THERM_COEFF, const double & MELT_MASS, const size_t & BREAK_PROB, size_t & cell_sizex, size_t & cell_sizey, size_t & fluid_mode):
-		_grains(grains), _walls(walls),
-		_offset(offset), _dt(dt), _gDamping(gDamping), _stepup(stepup), _slopedir(slopedir), _flowangle(flowangle), _flowforce(flowforce), _fracProps(FracProps), _grainsWall(grainsWall), 
+    _grains(grains), _walls(walls),
+    _offset(offset), _dt(dt), _gDamping(gDamping), _stepup(stepup), _slopedir(slopedir), _flowangle(flowangle), _flowforce(flowforce), _fracProps(FracProps), _grainsWall(grainsWall), 
         _fluid_coord(fluid_coord), _Uwg(Uwg), _x_cells(x_cells), _y_cells(y_cells), _oceanTemp(oceanTemp), 
         _START_TEMP(START_TEMP), _THERM_COEFF(THERM_COEFF), _MELT_MASS(MELT_MASS), _BREAK_PROB(BREAK_PROB), _cell_sizex(cell_sizex), _cell_sizey(cell_sizey), _fluid_mode(fluid_mode){  //ADD    _fracProps(FracProps)
 
-		_ngrains = grains.size();
+    _ngrains = grains.size();
 
         _ngrainsWall = grainsWall.size();
             
         _nwalls = walls.size();
 
-		_globalGrainState.resize(_ngrains,_nwalls);		_globalGrainState.reset();   //Don't add _ngrainsWall since they do not receive forces, only induce on grains TODO ????
+    _globalGrainState.resize(_ngrains,_nwalls);   _globalGrainState.reset();   //Don't add _ngrainsWall since they do not receive forces, only induce on grains TODO ????
 
-	}
+  }
 
   void readjustGrains() {
     //Preprocess Particular Level Set FOR TIME STEP 0 AND EVERYTHING ELSE. THIS INVOLVES MODIFYING ALL FROM SCRATCH (CRITICAL STEP)  IT ONLY HAPPENS ONCE
@@ -252,50 +252,50 @@ public:
   }
     
     // update nearest neighbor list
-	void updateNNLists(){
-		int numprocessors, rank; 
-		MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
-		MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
-		//#pragma omp parallel default(none) shared(numprocessors,rank,cout) firstprivate(count, nnSize, nnList) // reduction(+:threadWallState,threadGrainState) //num_threads(1)
-		#pragma omp parallel for default(none) shared(rank,numprocessors, cout) schedule(static,20) //num_threads(16) 
-			for (size_t i = rank; i < _ngrains; i++){
-				vector <size_t> nnList;
-				for(size_t j=i+1; j < _ngrains; j+=numprocessors){
-						if ( _grains[i].vRadiusCheck2(_grains[j]) || _grains[i].bcircleGrainIntersectionXOffset(_grains[j], _offset(0))  ||  _grains[i].bcircleGrainIntersectionYOffset(_grains[j], _offset(1))  )  {  //Check None or 2 for Vradius check??
-							nnList.push_back(j);
-						}
+  void updateNNLists(){
+    int numprocessors, rank; 
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); 
+    //#pragma omp parallel default(none) shared(numprocessors,rank,cout) firstprivate(count, nnSize, nnList) // reduction(+:threadWallState,threadGrainState) //num_threads(1)
+    #pragma omp parallel for default(none) shared(rank,numprocessors, cout) schedule(static,20) //num_threads(16) 
+      for (size_t i = rank; i < _ngrains; i++){
+        vector <size_t> nnList;
+        for(size_t j=i+1; j < _ngrains; j+=numprocessors){
+            if ( _grains[i].vRadiusCheck2(_grains[j]) || _grains[i].bcircleGrainIntersectionXOffset(_grains[j], _offset(0))  ||  _grains[i].bcircleGrainIntersectionYOffset(_grains[j], _offset(1))  )  {  //Check None or 2 for Vradius check??
+              nnList.push_back(j);
+            }
 
-				}
-				#pragma omp critical //WARNING INSPECT THIS CHANGE!!! TODO
-				{
-				  _grains[i].changeNNList(nnList);
-				}
-			}
-	}
+        }
+        #pragma omp critical //WARNING INSPECT THIS CHANGE!!! TODO
+        {
+          _grains[i].changeNNList(nnList);
+        }
+      }
+  }
     
-	// computes the snapshot of the world (all grain forces/moments, all wall forces, total stress)
-	// by updating _globalGrainState and _globalWallState
-	void computeWorldState() {
+  // computes the snapshot of the world (all grain forces/moments, all wall forces, total stress)
+  // by updating _globalGrainState and _globalWallState
+  void computeWorldState() {
 
-		// reset the global states
-		_globalGrainState.reset();
+    // reset the global states
+    _globalGrainState.reset();
 
 
-		// define temp variables
-		Vector2d force;					// force on a grain
-		force.fill(0);					// initialization
-		double momenti = 0.;			// moment on grain i
-		double momentj = 0.;			// momnet on grain j
-		Vector2d cmvec; 				// branch vector
-		Vector3d stress;				// stress in the assembly
+    // define temp variables
+    Vector2d force;         // force on a grain
+    force.fill(0);          // initialization
+    double momenti = 0.;      // moment on grain i
+    double momentj = 0.;      // momnet on grain j
+    Vector2d cmvec;         // branch vector
+    Vector3d stress;        // stress in the assembly
 
         // define parallel processing stuff (MPI is initialized at the mainfile)
-		int numprocessors, rank;
-	    MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
-	    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int numprocessors, rank;
+      MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
+      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-	#pragma omp parallel default(none) shared(numprocessors, rank, cout) firstprivate(force, momenti, momentj, cmvec, stress) //num_threads(4)
-	{
+  #pragma omp parallel default(none) shared(numprocessors, rank, cout) firstprivate(force, momenti, momentj, cmvec, stress) //num_threads(4)
+  {
         
         //Start Fluid Modification (Initialization of Function Parameters)
         //--------------------------------------------------------------------------------------------------------------------------------
@@ -355,39 +355,39 @@ public:
 
     
       
-		// Initialize local states in each thread to later add all together
-		GrainState2d threadGrainState;
+    // Initialize local states in each thread to later add all together
+    GrainState2d threadGrainState;
 
-		threadGrainState.resize(_ngrains,_nwalls);
-		threadGrainState.reset();
+    threadGrainState.resize(_ngrains,_nwalls);
+    threadGrainState.reset();
 
-		size_t ncontacts = 0;
+    size_t ncontacts = 0;
 
-		// Each thread grubs 40 chunks of iterations dynamically
-		#pragma omp for schedule(dynamic, 40)
-		for (size_t i = rank; i < _ngrains; i+=numprocessors){
-			//FOR LS-DEM
-			if (_only_dem == false)
-			{
-    			// one-way grain-grain contact detection (each grain against grains of higher index)
-    			for (size_t j = i+1; j < _ngrains; j++){
-    				// Normal contacts
-    				if (_grains[i].bcircleGrainIntersection(_grains[j])){
-    				   if(_grains[i].findInterparticleForceMoment(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(0,0), _grainsWall.size() )) {
+    // Each thread grubs 40 chunks of iterations dynamically
+    #pragma omp for schedule(dynamic, 40)
+    for (size_t i = rank; i < _ngrains; i+=numprocessors){
+      //FOR LS-DEM
+      if (_only_dem == false)
+      {
+          // one-way grain-grain contact detection (each grain against grains of higher index)
+          for (size_t j = i+1; j < _ngrains; j++){
+            // Normal contacts
+            if (_grains[i].bcircleGrainIntersection(_grains[j])){
+               if(_grains[i].findInterparticleForceMoment(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(0,0), _grainsWall.size() )) {
                             
-    						cmvec = _grains[i].getPosition() - _grains[j].getPosition();
-    						threadGrainState._grainForces[i] += force;
+                cmvec = _grains[i].getPosition() - _grains[j].getPosition();
+                threadGrainState._grainForces[i] += force;
                             if (force.norm() > 1000 ){
-    						//if (i == 40 || i == 41 || i == 42 || i == 43 || i == 44 || i == 45){
+                //if (i == 40 || i == 41 || i == 42 || i == 43 || i == 44 || i == 45){
                                 //cout << "Contact on grain i: " << i << " and j: " << j << endl;    
                                 //cout << "Force on grain i" << i << " x: " << force(0) << " and y: " << force(1) << " by: " << j <<endl;
                             }
                             threadGrainState._grainForces[j] -= force;
-    						threadGrainState._grainMoments[i] += momenti;
-    						threadGrainState._grainMoments[j] += momentj;
-    						threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
-    						threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
-    						threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
+                threadGrainState._grainMoments[i] += momenti;
+                threadGrainState._grainMoments[j] += momentj;
+                threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
+                threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
+                threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
     
     
                             Vector3d contactStress = Vector3d(force(0)*cmvec(0),force(1)*cmvec(1),0.5*(force(1)*cmvec(0) + force(0)*cmvec(1)));
@@ -395,90 +395,90 @@ public:
                             threadGrainState._grainStress[j] += contactStress;
                             threadGrainState._grainCoord[i].push_back(_grains[j].getId());//lists contact ids
                             threadGrainState._grainCoord[j].push_back(_grains[i].getId());
-    				    }
-    				}
+                }
+            }
                                    
                     
-    //				// Contacts due to periodic bcs (Offset)
-    				else if (_grains[i].bcircleGrainIntersectionXOffset(_grains[j], _offset(0))){
-    				   if(_grains[i].findInterparticleForceMoment(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(_offset(0),0), _grainsWall.size() )) {
-    						cmvec = _grains[i].getPosition() - _grains[j].getPosition();
+    //        // Contacts due to periodic bcs (Offset)
+            else if (_grains[i].bcircleGrainIntersectionXOffset(_grains[j], _offset(0))){
+               if(_grains[i].findInterparticleForceMoment(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(_offset(0),0), _grainsWall.size() )) {
+                cmvec = _grains[i].getPosition() - _grains[j].getPosition();
     
-    					   if (_grains[j].getPosition()(0) > _grains[i].getPosition()(0))
-    							cmvec = _grains[i].getPosition() + Vector2d(_offset(0),0) - _grains[j].getPosition();
-    					   else
-    							cmvec = _grains[i].getPosition() - Vector2d(_offset(0),0) - _grains[j].getPosition();
+                 if (_grains[j].getPosition()(0) > _grains[i].getPosition()(0))
+                  cmvec = _grains[i].getPosition() + Vector2d(_offset(0),0) - _grains[j].getPosition();
+                 else
+                  cmvec = _grains[i].getPosition() - Vector2d(_offset(0),0) - _grains[j].getPosition();
      
-    						threadGrainState._grainForces[i] += force;
-    						threadGrainState._grainForces[j] -= force;
-    						threadGrainState._grainMoments[i] += momenti;
-    						threadGrainState._grainMoments[j] += momentj;
-    						threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
-    						threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
-    						threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
+                threadGrainState._grainForces[i] += force;
+                threadGrainState._grainForces[j] -= force;
+                threadGrainState._grainMoments[i] += momenti;
+                threadGrainState._grainMoments[j] += momentj;
+                threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
+                threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
+                threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
     
                             Vector3d contactStress = Vector3d(force(0)*cmvec(0),force(1)*cmvec(1),0.5*(force(1)*cmvec(0) + force(0)*cmvec(1)));
                             threadGrainState._grainStress[i] += contactStress;
                             threadGrainState._grainStress[j] += contactStress;
                             threadGrainState._grainCoord[i].push_back(_grains[j].getId());//lists contact ids
                             threadGrainState._grainCoord[j].push_back(_grains[i].getId());
-    				    }
-    				}
-    				else if (_grains[i].bcircleGrainIntersectionYOffset(_grains[j], _offset(1))){
-    				   if(_grains[i].findInterparticleForceMoment(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(0,_offset(1)), _grainsWall.size() )) {
-    						cmvec = _grains[i].getPosition() - _grains[j].getPosition();
+                }
+            }
+            else if (_grains[i].bcircleGrainIntersectionYOffset(_grains[j], _offset(1))){
+               if(_grains[i].findInterparticleForceMoment(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(0,_offset(1)), _grainsWall.size() )) {
+                cmvec = _grains[i].getPosition() - _grains[j].getPosition();
     
-    					   if (_grains[j].getPosition()(1) > _grains[i].getPosition()(1))
-    							cmvec = _grains[i].getPosition() + Vector2d(0,_offset(1)) - _grains[j].getPosition();
-    					   else
-    							cmvec = _grains[i].getPosition() - Vector2d(0,_offset(1)) - _grains[j].getPosition();
+                 if (_grains[j].getPosition()(1) > _grains[i].getPosition()(1))
+                  cmvec = _grains[i].getPosition() + Vector2d(0,_offset(1)) - _grains[j].getPosition();
+                 else
+                  cmvec = _grains[i].getPosition() - Vector2d(0,_offset(1)) - _grains[j].getPosition();
     
-    						threadGrainState._grainForces[i] += force;
-    						threadGrainState._grainForces[j] -= force;
-    						threadGrainState._grainMoments[i] += momenti;
-    						threadGrainState._grainMoments[j] += momentj;
-    						threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
-    						threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
-    						threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
+                threadGrainState._grainForces[i] += force;
+                threadGrainState._grainForces[j] -= force;
+                threadGrainState._grainMoments[i] += momenti;
+                threadGrainState._grainMoments[j] += momentj;
+                threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
+                threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
+                threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
     
                             Vector3d contactStress = Vector3d(force(0)*cmvec(0),force(1)*cmvec(1),0.5*(force(1)*cmvec(0) + force(0)*cmvec(1)));
                             threadGrainState._grainStress[i] += contactStress;
                             threadGrainState._grainStress[j] += contactStress;
                             threadGrainState._grainCoord[i].push_back(_grains[j].getId());//lists contact ids
                             threadGrainState._grainCoord[j].push_back(_grains[i].getId());
-    				    }
-    				}
+                }
+            }
                     
     
     
-    			} // end loop over grain j full LS-DEM
-			}
-			//For regular dem
-			else
-			{
-    			vector <size_t> nnList = _grains[i].getNNList();
-				size_t nnSize = nnList.size();
-				//cout << "nnList Size: " << nnSize << endl;
-				// one-way grain-grain contact detection (each grain against grains of higher index) using NN
-				for (size_t count = 0; count < nnSize; count++){
-					size_t j = nnList[count];
-    				// Normal contacts
-    				if (_grains[i].vRadiusCheck2(_grains[j])){  //vRadius replaces bCircleGrain
-    				   if(_grains[i].findInterparticleForceMomentDEM(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(0,0), _grainsWall.size() )) {
+          } // end loop over grain j full LS-DEM
+      }
+      //For regular dem
+      else
+      {
+          vector <size_t> nnList = _grains[i].getNNList();
+        size_t nnSize = nnList.size();
+        //cout << "nnList Size: " << nnSize << endl;
+        // one-way grain-grain contact detection (each grain against grains of higher index) using NN
+        for (size_t count = 0; count < nnSize; count++){
+          size_t j = nnList[count];
+            // Normal contacts
+            if (_grains[i].vRadiusCheck2(_grains[j])){  //vRadius replaces bCircleGrain
+               if(_grains[i].findInterparticleForceMomentDEM(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(0,0), _grainsWall.size(), _ntension, _nshear)) {
                             
-    						cmvec = _grains[i].getPosition() - _grains[j].getPosition();
-    						threadGrainState._grainForces[i] += force;
+                cmvec = _grains[i].getPosition() - _grains[j].getPosition();
+                threadGrainState._grainForces[i] += force;
                             if (force.norm() > 1000 ){
-    						//if (i == 40 || i == 41 || i == 42 || i == 43 || i == 44 || i == 45){
+                //if (i == 40 || i == 41 || i == 42 || i == 43 || i == 44 || i == 45){
                                 //cout << "Contact on grain i: " << i << " and j: " << j << endl;    
                                 //cout << "Force on grain i" << i << " x: " << force(0) << " and y: " << force(1) << " by: " << j <<endl;
                             }
                             threadGrainState._grainForces[j] -= force;
-    						threadGrainState._grainMoments[i] += momenti;
-    						threadGrainState._grainMoments[j] += momentj;
-    						threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
-    						threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
-    						threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
+                threadGrainState._grainMoments[i] += momenti;
+                threadGrainState._grainMoments[j] += momentj;
+                threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
+                threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
+                threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
     
     
                             Vector3d contactStress = Vector3d(force(0)*cmvec(0),force(1)*cmvec(1),0.5*(force(1)*cmvec(0) + force(0)*cmvec(1)));
@@ -486,61 +486,61 @@ public:
                             threadGrainState._grainStress[j] += contactStress;
                             threadGrainState._grainCoord[i].push_back(_grains[j].getId());//lists contact ids
                             threadGrainState._grainCoord[j].push_back(_grains[i].getId());
-    				    }
-    				}
-    //				// Contacts due to periodic bcs (Offset)
-    				else if (_grains[i].bcircleGrainIntersectionXOffset(_grains[j], _offset(0))){ //Use radius so they work well, but check bonding PBC
-    				   if(_grains[i].findInterparticleForceMomentDEM(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(_offset(0),0), _grainsWall.size() )) {
-    						cmvec = _grains[i].getPosition() - _grains[j].getPosition();
+                }
+            }
+    //        // Contacts due to periodic bcs (Offset)
+            else if (_grains[i].bcircleGrainIntersectionXOffset(_grains[j], _offset(0))){ //Use radius so they work well, but check bonding PBC
+               if(_grains[i].findInterparticleForceMomentDEM(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(_offset(0),0), _grainsWall.size(), _ntension, _nshear )) {
+                cmvec = _grains[i].getPosition() - _grains[j].getPosition();
     
-    					   if (_grains[j].getPosition()(0) > _grains[i].getPosition()(0))
-    							cmvec = _grains[i].getPosition() + Vector2d(_offset(0),0) - _grains[j].getPosition();
-    					   else
-    							cmvec = _grains[i].getPosition() - Vector2d(_offset(0),0) - _grains[j].getPosition();
+                 if (_grains[j].getPosition()(0) > _grains[i].getPosition()(0))
+                  cmvec = _grains[i].getPosition() + Vector2d(_offset(0),0) - _grains[j].getPosition();
+                 else
+                  cmvec = _grains[i].getPosition() - Vector2d(_offset(0),0) - _grains[j].getPosition();
      
-    						threadGrainState._grainForces[i] += force;
-    						threadGrainState._grainForces[j] -= force;
-    						threadGrainState._grainMoments[i] += momenti;
-    						threadGrainState._grainMoments[j] += momentj;
-    						threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
-    						threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
-    						threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
+                threadGrainState._grainForces[i] += force;
+                threadGrainState._grainForces[j] -= force;
+                threadGrainState._grainMoments[i] += momenti;
+                threadGrainState._grainMoments[j] += momentj;
+                threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
+                threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
+                threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
     
                             Vector3d contactStress = Vector3d(force(0)*cmvec(0),force(1)*cmvec(1),0.5*(force(1)*cmvec(0) + force(0)*cmvec(1)));
                             threadGrainState._grainStress[i] += contactStress;
                             threadGrainState._grainStress[j] += contactStress;
                             threadGrainState._grainCoord[i].push_back(_grains[j].getId());//lists contact ids
                             threadGrainState._grainCoord[j].push_back(_grains[i].getId());
-    				    }
-    				}
-    				else if (_grains[i].bcircleGrainIntersectionYOffset(_grains[j], _offset(1))){
-    				   if(_grains[i].findInterparticleForceMomentDEM(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(0,_offset(1)), _grainsWall.size() )) {
-    						cmvec = _grains[i].getPosition() - _grains[j].getPosition();
+                }
+            }
+            else if (_grains[i].bcircleGrainIntersectionYOffset(_grains[j], _offset(1))){
+               if(_grains[i].findInterparticleForceMomentDEM(_grains[j], _dt, force, momenti, momentj, ncontacts, Vector2d(0,_offset(1)), _grainsWall.size(), _ntension, _nshear )) {
+                cmvec = _grains[i].getPosition() - _grains[j].getPosition();
     
-    					   if (_grains[j].getPosition()(1) > _grains[i].getPosition()(1))
-    							cmvec = _grains[i].getPosition() + Vector2d(0,_offset(1)) - _grains[j].getPosition();
-    					   else
-    							cmvec = _grains[i].getPosition() - Vector2d(0,_offset(1)) - _grains[j].getPosition();
+                 if (_grains[j].getPosition()(1) > _grains[i].getPosition()(1))
+                  cmvec = _grains[i].getPosition() + Vector2d(0,_offset(1)) - _grains[j].getPosition();
+                 else
+                  cmvec = _grains[i].getPosition() - Vector2d(0,_offset(1)) - _grains[j].getPosition();
     
-    						threadGrainState._grainForces[i] += force;
-    						threadGrainState._grainForces[j] -= force;
-    						threadGrainState._grainMoments[i] += momenti;
-    						threadGrainState._grainMoments[j] += momentj;
-    						threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
-    						threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
-    						threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
+                threadGrainState._grainForces[i] += force;
+                threadGrainState._grainForces[j] -= force;
+                threadGrainState._grainMoments[i] += momenti;
+                threadGrainState._grainMoments[j] += momentj;
+                threadGrainState._stressVoigt(0) += force(0)*cmvec(0);
+                threadGrainState._stressVoigt(1) += force(1)*cmvec(1);
+                threadGrainState._stressVoigt(2) += 0.5*(force(1)*cmvec(0) + force(0)*cmvec(1));
     
                             Vector3d contactStress = Vector3d(force(0)*cmvec(0),force(1)*cmvec(1),0.5*(force(1)*cmvec(0) + force(0)*cmvec(1)));
                             threadGrainState._grainStress[i] += contactStress;
                             threadGrainState._grainStress[j] += contactStress;
                             threadGrainState._grainCoord[i].push_back(_grains[j].getId());//lists contact ids
                             threadGrainState._grainCoord[j].push_back(_grains[i].getId());
-    				    }
-    				}
+                }
+            }
     
-    			} // end loop over grain j regular DEM
-			}			
-			
+          } // end loop over grain j regular DEM
+      }     
+      
             
             //Start Wall Modification
             //--------------------------------------------------------------------------------------------------------------------------------
@@ -635,7 +635,15 @@ public:
               }
               else if (_fluid_mode == 3){
                   if (_only_dem){
-                      _grains[i].fluidInteraction_NovaDEM(Cha, Cva, Chw, Cvw, rhoice, rhoair, rhowater, hice, hair,  hwater, Ua, Uw, fluidForceha, fluidForcehw, fluidForceh, fluidForceva, fluidForcevw, fluidForcev, ppv, ppvn, midp, force, fluidMoment, _stepup, _slopedir, _flowangle, _flowforce, _offset, _cell_sizex, _cell_sizey, _Uwg, _x_cells, _y_cells, _fluid_coord, i, _dt);
+                      if (_ice_damp == false){
+                          //_grains[i].fluidInteraction_NovaDEM(Cha, Cva, Chw, Cvw, rhoice, rhoair, rhowater, hice, hair,  hwater, Ua, Uw, fluidForceha, fluidForcehw, fluidForceh, fluidForceva, fluidForcevw, fluidForcev, ppv, ppvn, midp, force, fluidMoment, _stepup, _slopedir, _flowangle, _flowforce, _offset, _cell_sizex, _cell_sizey, _Uwg, _x_cells, _y_cells, _fluid_coord, i, _dt);
+                          _grains[i].fluidInteraction_NovaDEM_Damp_big(Cha, Cva, Chw, Cvw, rhoice, rhoair, rhowater, hice, hair,  hwater, Ua, Uw, fluidForceha, fluidForcehw, fluidForceh, fluidForceva, fluidForcevw, fluidForcev, ppv, ppvn, midp, force, fluidMoment, _stepup, _slopedir, _flowangle, _flowforce, _offset, _cell_sizex, _cell_sizey, _Uwg, _x_cells, _y_cells, _fluid_coord, i, _dt, _dampMat, _curr_factor);
+                      }
+                      else{
+                          //Big for floes whose Area > cell area, small for floes whose area < cell area
+                          _grains[i].fluidInteraction_NovaDEM_Damp_big(Cha, Cva, Chw, Cvw, rhoice, rhoair, rhowater, hice, hair,  hwater, Ua, Uw, fluidForceha, fluidForcehw, fluidForceh, fluidForceva, fluidForcevw, fluidForcev, ppv, ppvn, midp, force, fluidMoment, _stepup, _slopedir, _flowangle, _flowforce, _offset, _cell_sizex, _cell_sizey, _Uwg, _x_cells, _y_cells, _fluid_coord, i, _dt, _dampMat, _curr_factor);
+                          //_grains[i].fluidInteraction_NovaDEM_Damp_small(Cha, Cva, Chw, Cvw, rhoice, rhoair, rhowater, hice, hair,  hwater, Ua, Uw, fluidForceha, fluidForcehw, fluidForceh, fluidForceva, fluidForcevw, fluidForcev, ppv, ppvn, midp, force, fluidMoment, _stepup, _slopedir, _flowangle, _flowforce, _offset, _cell_sizex, _cell_sizey, _Uwg, _x_cells, _y_cells, _fluid_coord, i, _dt, _dampMat);
+                      }
                   }
                   else{
                       _grains[i].fluidInteraction_Nova(Cha, Cva, Chw, Cvw, rhoice, rhoair, rhowater, hice, hair,  hwater, Ua, Uw, fluidForceha, fluidForcehw, fluidForceh, fluidForceva, fluidForcevw, fluidForcev, ppv, ppvn, midp, force, fluidMoment, _stepup, _slopedir, _flowangle, _flowforce, _offset, _cell_sizex, _cell_sizey, _Uwg, _x_cells, _y_cells, _fluid_coord, i);
@@ -688,77 +696,77 @@ public:
           //    cout << "New mass/temper for grain: " << i << " is :" <<  _grains[i].getTemperature()  <<endl;
           //}
 
-	    } // end loop over grains
+      } // end loop over grains
         // Assemble the global state
-		#pragma omp critical
-		{
-			_globalGrainState += threadGrainState;
+    #pragma omp critical
+    {
+      _globalGrainState += threadGrainState;
 
-		}
-	} // close opemp parallel section
+    }
+  } // close opemp parallel section
 
-	// MPI calls  sendbuf       recvbuff                                   		count       		type               op       comm
-	MPI_Allreduce(MPI_IN_PLACE, _globalGrainState._grainForces[0].data(),  		_ngrains*2,  		MPI_DOUBLE,        MPI_SUM, MPI_COMM_WORLD);
-	MPI_Allreduce(MPI_IN_PLACE, _globalGrainState._grainMoments.data(),    		_ngrains,  			MPI_DOUBLE,        MPI_SUM, MPI_COMM_WORLD);
-	MPI_Allreduce(MPI_IN_PLACE, _globalGrainState._stressVoigt.data(),     		3,           		MPI_DOUBLE,        MPI_SUM, MPI_COMM_WORLD);
+  // MPI calls  sendbuf       recvbuff                                      count           type               op       comm
+  MPI_Allreduce(MPI_IN_PLACE, _globalGrainState._grainForces[0].data(),     _ngrains*2,     MPI_DOUBLE,        MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, _globalGrainState._grainMoments.data(),       _ngrains,       MPI_DOUBLE,        MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(MPI_IN_PLACE, _globalGrainState._stressVoigt.data(),        3,              MPI_DOUBLE,        MPI_SUM, MPI_COMM_WORLD);
         
     //What about walls here???????
         
 
-	} // end computeWorldState
+  } // end computeWorldState
 
-	// Gets world state at the given snapshot for output purposes
-	CData computeCstate() const {
+  // Gets world state at the given snapshot for output purposes
+  CData computeCstate() const {
 
-		CData cDataRank;
-		int numprocessors, rank;
-		MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
-		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    CData cDataRank;
+    int numprocessors, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-		#pragma omp parallel default(none) shared(numprocessors,rank,cout,cDataRank) // num_threads(1)
-		{
-			CData cDataThread;
-			#pragma omp for schedule(dynamic, 5)
-			for (size_t i = rank; i < _ngrains; i+=numprocessors) {
-				if (_only_dem == false){
-    				//Grain-grain contact subloop
+    #pragma omp parallel default(none) shared(numprocessors,rank,cout,cDataRank) // num_threads(1)
+    {
+      CData cDataThread;
+      #pragma omp for schedule(dynamic, 5)
+      for (size_t i = rank; i < _ngrains; i+=numprocessors) {
+        if (_only_dem == false){
+            //Grain-grain contact subloop
                     for (size_t j = i+1; j < _ngrains; j++) {
-    					// Normal contacts
-    					if (_grains[i].bcircleGrainIntersection(_grains[j])){
-    						CData cDataContact = _grains[i].findContactData(_grains[j], _dt, 0);
-    						if (cDataContact._clocs.size() > 0) {
-    							cDataThread += cDataContact;
-    						}
-    					}
-    					// Contacts due to periodic bcs
-    					else if (_grains[i].bcircleGrainIntersectionXOffset(_grains[j], _offset(0))){
-    						CData cDataContact = _grains[i].findContactData(_grains[j], _dt, _offset(0));
-    						if (cDataContact._clocs.size() > 0) {
-    							cDataThread += cDataContact;
-    						}
-    					}
-    				} // close grain subloop FULL LS-DEM
-				}
-				else{
-				    //Grain-grain contact subloop regular DEM
+              // Normal contacts
+              if (_grains[i].bcircleGrainIntersection(_grains[j])){
+                CData cDataContact = _grains[i].findContactData(_grains[j], _dt, 0);
+                if (cDataContact._clocs.size() > 0) {
+                  cDataThread += cDataContact;
+                }
+              }
+              // Contacts due to periodic bcs
+              else if (_grains[i].bcircleGrainIntersectionXOffset(_grains[j], _offset(0))){
+                CData cDataContact = _grains[i].findContactData(_grains[j], _dt, _offset(0));
+                if (cDataContact._clocs.size() > 0) {
+                  cDataThread += cDataContact;
+                }
+              }
+            } // close grain subloop FULL LS-DEM
+        }
+        else{
+            //Grain-grain contact subloop regular DEM
                     for (size_t j = i+1; j < _ngrains; j++) {
-    					// Normal contacts
-    					if (_grains[i].bcircleGrainIntersection(_grains[j])){
-    						CData cDataContact = _grains[i].findContactDataDEM(_grains[j], _dt, 0);
-    						if (cDataContact._clocs.size() > 0) {
-    							cDataThread += cDataContact;
-    						}
-    					}
-    					// Contacts due to periodic bcs
-    					else if (_grains[i].bcircleGrainIntersectionXOffset(_grains[j], _offset(0))){
-    						CData cDataContact = _grains[i].findContactDataDEM(_grains[j], _dt, _offset(0));
-    						if (cDataContact._clocs.size() > 0) {
-    							cDataThread += cDataContact;
-    						}
-    					}
-    				} // close grain subloop regular DEM
-				    
-			    }
+              // Normal contacts
+              if (_grains[i].bcircleGrainIntersection(_grains[j])){
+                CData cDataContact = _grains[i].findContactDataDEM(_grains[j], _dt, 0);
+                if (cDataContact._clocs.size() > 0) {
+                  cDataThread += cDataContact;
+                }
+              }
+              // Contacts due to periodic bcs
+              else if (_grains[i].bcircleGrainIntersectionXOffset(_grains[j], _offset(0))){
+                CData cDataContact = _grains[i].findContactDataDEM(_grains[j], _dt, _offset(0));
+                if (cDataContact._clocs.size() > 0) {
+                  cDataThread += cDataContact;
+                }
+              }
+            } // close grain subloop regular DEM
+            
+          }
                 
                 // //Grainwall contact subloop
                 // for (size_t jj = 0; jj < _ngrainsWall; jj++) {
@@ -771,7 +779,7 @@ public:
                 //     }
                 // } // close grainWall subloop
                 
-				// // TODO: Add here particle-wall contact data CORRECT????
+        // // TODO: Add here particle-wall contact data CORRECT????
     //             for (size_t j = 0; j < _walls.size(); j++) {
     //                     // Normal contacts
     //                     if (_walls[j].bcircleWallIntersection(_grains[i])){
@@ -782,14 +790,14 @@ public:
     //                     }
     //             } // close wall subloop
            
-			} // end loop over grains
-			#pragma omp critical
-			{
-				cDataRank += cDataThread;
-			}
-		} // closes openmp parallel section
-		return cDataRank;
-	} // end computeCstate method
+      } // end loop over grains
+      #pragma omp critical
+      {
+        cDataRank += cDataThread;
+      }
+    } // closes openmp parallel section
+    return cDataRank;
+  } // end computeCstate method
 
 
     //Contact State for Grain Walls
@@ -1075,7 +1083,7 @@ public:
   //void TempState(vector<double> & MeltBin, vector<double> & Diameters, double & outer_TempW, double & limitMaxDiamV, double & limitMinDiamV, const size_t & dstep, double & qvert, double & Khor,  double & alpha_ice, double & Qatm, double & Aatm, double & Batm, vector<Vector4d> & Fine_Grains, double & a_i, double & a_x, double & T_fave, double & T_xave)
   //Change Aug 22, 2022
   void TempState(vector<double> & MeltBin, vector<double> & Diameters, double & outer_TempW, double & limitMaxDiamV, double & limitMinDiamV, const size_t & dstep, double & qvert, double & Khor,  double & alpha_ice, double & Qatm, double & Aatm, double & Batm, vector<Vector4d> & Fine_Grains, double & a_i, double & a_x, double & T_fave, double & T_xave,
-                 double & loss_mcv, double & loss_fines, vector<size_t> & NLMelt, vector<size_t> & NLBreak, vector<size_t> & NGMelt, vector<size_t> & NGBreak, double & loss_mcv_solar, double & loss_mcv_ocean)
+                 double & loss_mcv, double & loss_fines, vector<size_t> & NLMelt, vector<size_t> & NLBreak, vector<size_t> & NGMelt, vector<size_t> & NGBreak, double & loss_mcv_solar, double & loss_mcv_ocean, double & area_loss_basal, double & area_loss_lat, double & ave_delta_r, vector<double> & LatRate, double & MLAT, double & MBASAL)
   {
     
     //Heat units will be in m, s, kg and K, re-scale if need w.r.t to global km units!!!
@@ -1159,8 +1167,13 @@ public:
       //Fine_Grains[i](1) = max(Orig_thick + dstep*(meltVf)*(meltTemp - Tempval) + dstep*(meltVSun) , 0.000); //Return zero if less than zero   //TODO ALPHA: Update using Global Grid Temp using Position and Bilinear Interpolation, don't forget 1.8 adjust
       //Newer fine average
 
-      Fine_Grains[i](1) = max( Orig_thick + dstep*(meltVf)*(meltTemp - T_fave) + (dstep/(rho_icem*Lf))*( -Qatm * (1-a_x) + (Aatm + Batm * (T_xave-1.8)) )   ,  0.000);
+      //MAIN EXPRESSION
+      //Fine_Grains[i](1) = max( Orig_thick + dstep*(meltVf)*(meltTemp - T_fave) + (dstep/(rho_icem*Lf))*( -Qatm * (1-a_x) + (Aatm + Batm * (T_xave-1.8)) )   ,  0.000);
       //New thick             //Old thick     //qvert comp.  * (Tmelt-T_fave)        //Denom                      //Q, A, BT part
+      
+      //PROPOSED EXPRESSION
+      Fine_Grains[i](1) = max( Orig_thick + dstep*(meltVf)*( (meltTemp-1.8) - (T_fave-1.8) ) + (dstep/(rho_icem*Lf))*( -Qatm * (1-a_i) + (Aatm + Batm * (meltTemp-1.8)) )   ,  0.000);
+      //Check result
       
       //Calculate mass loss
       //Change Aug 22, 2022
@@ -1171,6 +1184,23 @@ public:
       //END
     }
     
+    //For lateral rate estimation on coarse grains (sum for averate)
+    double delta_r_temp = 0.0;
+    ave_delta_r = 0.0;
+    double delta_r_vec = 0.0;
+    //Lat. Rate for bins
+    vector<double> deltaRV(LatRate.size());
+    vector<size_t> nFloes(LatRate.size());
+    for (size_t i = 0; i < LatRate.size(); i++)
+    {
+        //LatRate[i] = 0.0;
+        deltaRV[i] = 0.0;
+        nFloes[i] = 0;
+    }
+    
+    double h_0, h_f;
+    double hlat;
+
     //Update coarse grains (geometry and thickness)
     cout << "Update Coarse for ngrains: " << _ngrains << endl;
     for (size_t i = 0; i < _ngrains; i++){ 
@@ -1235,6 +1265,7 @@ public:
           double IAreaMelt = 0.5*abs(Area);
           double IDiamMelt = (2 * sqrt(IAreaMelt /3.141592653589793));
 
+          h_0 = _grains[i].getThickness();
           //Basal Melting
           //if (i == 37000)
           //{_grains[i].TemperatureModifBasal(Tair, Twater, _dt, dh, alphaice, meltTemp, meltid, _stepup, _START_TEMP);}  //Not needed for new melt mode
@@ -1263,7 +1294,8 @@ public:
              double loss_mcv_temp = 0.0;
              double loss_mcv_solar_temp = 0.0;
              double loss_mcv_ocean_temp = 0.0;
-             _grains[i].TemperatureModif(Tair, Twater, _dt, dh, alphaice, meltTemp, meltid, meltV, _stepup, KIc, afactor, fdim, _START_TEMP, Khor, meltVSun, melt_flag, dstep, _fluid_coord, _x_cells, _y_cells, _oceanTemp, _offset, loss_mcv_temp, loss_mcv_solar_temp, loss_mcv_ocean_temp); 
+             hlat = 0.0;
+             _grains[i].TemperatureModif(Tair, Twater, _dt, dh, alphaice, meltTemp, meltid, meltV, _stepup, KIc, afactor, fdim, _START_TEMP, Khor, meltVSun, melt_flag, dstep, _fluid_coord, _x_cells, _y_cells, _oceanTemp, _offset, loss_mcv_temp, loss_mcv_solar_temp, loss_mcv_ocean_temp, hlat); 
              loss_mcv += loss_mcv_temp;
              loss_mcv_solar += loss_mcv_solar_temp;
              loss_mcv_ocean += loss_mcv_ocean_temp;
@@ -1327,10 +1359,53 @@ public:
           double FDiamMelt = (2 * sqrt(FAreaMelt /3.141592653589793));
 
 
-
+            
           double AreaMelt = abs(IAreaMelt - FAreaMelt);  //No freezing happening only melting I > F
+          double AreaMeltcheck = IAreaMelt - FAreaMelt;
+          double Area_MB = 0.5*(IAreaMelt + FAreaMelt);
+          double deltaA = AreaMelt;
+          
+          //Get lateral radial calculate  //delta_r = sqrt(A_old/pi) - sqrt(A_new/pi) = r_old - r_new = 0.5*(d_old - d_new)
+          if (AreaMeltcheck > 0){
+            delta_r_temp += 0.5 * (IDiamMelt - FDiamMelt);
+            delta_r_vec =  0.5 * (IDiamMelt - FDiamMelt);
+          }
+          else{
+            delta_r_temp += 0.0; 
+            delta_r_vec = 0.0;
+          }
+          
+          if (AreaMeltcheck < 0){
+              AreaMeltcheck = 0;
+              Area_MB = 0.0;
+              deltaA = 0.0;
+          } 
+
           cout << "Area Melt for reference: " << AreaMelt << endl;
 
+          //Lateral melt loss area (else thickness melt)
+          if (_grains[i].getThickness() <= 0.0){
+            area_loss_basal += abs(IAreaMelt);
+          }
+          else{
+            area_loss_lat += abs(AreaMeltcheck);
+          }
+          
+          //Basal melt cumulative mass
+          h_f = _grains[i].getThickness();
+          double deltahB = 0.00;
+          if (h_0 > h_f){
+              deltahB = h_0 - h_f;
+          }
+          MBASAL += Area_MB * deltahB * rho_icem * 1000000.0;     //(km2 * m * kg/m3) -->  (km2 * m * kg/m3) * 1000^2 m2/1km2 --> 1000000.0 * (kg)
+          
+          //Lateral melt cumulative mass
+          
+          if (hlat <= 0.0){ //Check this
+              hlat = deltahB;
+          }
+          MLAT += deltaA * hlat * rho_icem * 1000000.0; 
+          
           //Find bin that lost this area (assume minor melt, staying on same bin)
           cout << "Work with bins lower!!!!" << endl;
           size_t loc_index = 0;
@@ -1417,7 +1492,12 @@ public:
           }
 
           //cout << "MELT: AreaOriginal: " << IAreaMelt << " IDiam: " << IDiamMelt  << " Area new: " << FAreaMelt << " FDiam: " << FDiamMelt  << " loc: " << loc_index << " loc2: " << loc_index2 << endl;
-
+          
+          //Save bin lateral rate
+          if (locl != 1000){
+              deltaRV[locl] = deltaRV[locl] + delta_r_vec;
+              nFloes[locl] =  nFloes[locl] + 1;   
+          }
 
       //}
       //else  //Consider melting larger floes moooooore slowly
@@ -1426,8 +1506,23 @@ public:
           //_grains[i].changeTemper(_grains[i].getMass()); 
       //}
     } 
+    
+    if (_ngrains > 0){
+        ave_delta_r = delta_r_temp / _ngrains;
+    }
+    
+    for (size_t i = 0; i < LatRate.size(); i++)
+    {
+        if (nFloes[i] > 0){
+            LatRate[i] = LatRate[i] + (double(deltaRV[i])/double(nFloes[i]));
+        }
+        else{
+            LatRate[i] = LatRate[i] + 0.0;
+        }
+    }
+
     cout<<"End of TempState" << endl;
-    return;	
+    return; 
   }
 
   //Create a unique mesh of nodes and elements for each grain, init damage and use with SVL when needed
@@ -1926,7 +2021,7 @@ public:
 
   //Function that eliminates grains if they melt
   //Change Aug 22, 2022
-  void Melty(vector<double> & MeltBin, vector<double> & Diameters, double & limitMinDiamV, vector<Vector4d> & Fine_Grains, vector<Vector2d> & Fine_Velocities, double & loss_mcl, double & loss_mcv, double & gain_fines, vector<size_t> & NLMelt, vector<size_t> & NLBreak, vector<size_t> & NGMelt, vector<size_t> & NGBreak, double & loss_mcv_solar, double & loss_mcv_ocean)
+  void Melty(vector<double> & MeltBin, vector<double> & Diameters, double & limitMinDiamV, vector<Vector4d> & Fine_Grains, vector<Vector2d> & Fine_Velocities, double & loss_mcl, double & loss_mcv, double & gain_fines, vector<size_t> & NLMelt, vector<size_t> & NLBreak, vector<size_t> & NGMelt, vector<size_t> & NGBreak, double & loss_mcv_solar, double & loss_mcv_ocean, double & area_loss_bkg)
   //void Melty(vector<double> & MeltBin, vector<double> & Diameters, double & limitMinDiamV, vector<Vector4d> & Fine_Grains, vector<Vector2d> & Fine_Velocities)
   {
     bool coarse_enough = true; //Assume ok to continue
@@ -2019,6 +2114,9 @@ public:
           //Substract from lost bin
           MeltBin[loc_index] += -AreaMelt;
           
+          //Accumulate basal area loss
+          //area_loss_basal += AreaMelt; //No need already accounted for in TempState after basal melt made use declare _thickness = 0, if so in Melty we only remove the grain. Different because we are calculating area, not mass.
+          
           //Change Aug 22, 2022
           //BEGIN
           loss_mcv += AreaMelt * max(_grains[i].getThickness(), 0.0) * 0.001 * _grains[i].getDensity();
@@ -2104,6 +2202,9 @@ public:
           
           //Substract from lost bin
           MeltBin[loc_index] += -AreaMelt;
+          
+          //Accumulate breakage area loss (will assume melty coarse to fine, is for sufficiently small broken coarse grains. Lateral melt will exclusively come from areal differences)
+          area_loss_bkg += AreaMelt;
           
           //Change Aug 22, 2022
           //BEGIN
@@ -2351,7 +2452,7 @@ public:
         cout <<"Random Shuffle" << endl;
         random_shuffle(iter.begin(),iter.end()); ////CHECK!!!
         cout << "ngrains control before loop: " << _ngrains << endl;
-	    for (size_t g1 = 0; g1 < _ngrains; g1++){
+      for (size_t g1 = 0; g1 < _ngrains; g1++){
              size_t g = iter[g1]; //CRITICAL For 1 random breakage (no problem since 1 grain chosen per step) MODIF_2 STAB   //Sep 30, 2022 Change for Prob. Break Try off 
              //cout << "ngrains control in  loop: " << _ngrains << " grain in process: " << g1 <<  endl;
              //size_t g = g1; //For thickness control (allows looping all grains) MODIF_2 STAB                                   //Sep 30, 2022 Change for Prob. Break Try on
@@ -2360,7 +2461,7 @@ public:
             //check if grain should fracture
             //cout << "Get Volume" << endl;
             double Volume = _grains[g].getMass()/_grains[g].getDensity();
-	        //cout << "Get Stress" << endl;	
+          //cout << "Get Stress" << endl; 
             Vector3d grainStress = _globalGrainState._grainStress[g]/Volume;  //EDIT
             //Vector3d grainStress;
             //grainStress << 0.0, 0.0, 0.0;
@@ -2535,7 +2636,7 @@ public:
             // cout << "Breakage Real Start for grain: " << g << endl;
             //if ( (_grains[g].getFracFlag() && _globalGrainState._grainCoord[g].size() >= 2) ||  (_grains[g].getFracFlag() && open_flag)      ) {
             if (    (_grains[g].getFracFlag() && open_flag)     ) { //Only thickness prob., no stress for now              
- 	         	//cout << "Breakage Real Start for grain IN: " << g << endl;
+            //cout << "Breakage Real Start for grain IN: " << g << endl;
 //              cout << "coord # " << _globalGrainState._grainCoord[g].size() << endl;
                 /*
                  * Get Grain 1 Info
@@ -3286,9 +3387,9 @@ public:
                 fprintf(docThick, "%4.8f\n", _grains[grain_index].getMthick().getLevelset()[jj*xxdimLS + ii] ); //Thickness LS
                 fprintf(docGeo, "%4.8f\n", _grains[grain_index].getLset().getLevelset()[jj*xxdimLS + ii] ); //Geo LS
                 
-            	lslocx = lowLx + 0.5 + ii; //IFF LS has unit of 1 for grid cells
-        	    lslocy = lowLy + 0.5 + jj; //IFF LS has unit of 1 for grid cells
-        	    pointOcxy << lslocx , lslocy;
+              lslocx = lowLx + 0.5 + ii; //IFF LS has unit of 1 for grid cells
+              lslocy = lowLy + 0.5 + jj; //IFF LS has unit of 1 for grid cells
+              pointOcxy << lslocx , lslocy;
                 fprintf(docTemp, "%4.8f\n", round_Ocean(pointOcxy, _oceanTemp, _x_cells, _y_cells, _offset) ); //Temp LS
             }
         }  
@@ -3388,7 +3489,7 @@ public:
                     //Assign current velocity
                     Uwf = _Uwg[j+i*_x_cells];
                     //SKIN DRAG SIMPLE
-		            fluid_drag_force = rhowater*Chw*(Uwf-_grains[grain_index].getVelocity()).norm()*(Uwf-_grains[grain_index].getVelocity()) * (_cell_sizex * _cell_sizey);	
+                fluid_drag_force = rhowater*Chw*(Uwf-_grains[grain_index].getVelocity()).norm()*(Uwf-_grains[grain_index].getVelocity()) * (_cell_sizex * _cell_sizey); 
                     
                     
                     //Based on centroid location
@@ -3461,7 +3562,7 @@ public:
         cout <<"Random Shuffle" << endl;
         random_shuffle(iter.begin(),iter.end()); ////CHECK!!!
         cout << "ngrains control before loop: " << _ngrains << endl;
-	    for (size_t g1 = 0; g1 < _ngrains; g1++){
+      for (size_t g1 = 0; g1 < _ngrains; g1++){
              //size_t g = iter[g1]; //CRITICAL For 1 random breakage (no problem since 1 grain chosen per step) MODIF_2 STAB   //Sep 30, 2022 Change for Prob. Break Try off 
              cout << "ngrains control in  loop: " << _ngrains << " grain in process: " << g1 <<  endl;
              size_t g = g1; //For thickness control (allows looping all grains) MODIF_2 STAB                                   //Sep 30, 2022 Change for Prob. Break Try on
@@ -3470,7 +3571,7 @@ public:
             //check if grain should fracture
             //cout << "Get Volume" << endl;
             double Volume = _grains[g].getMass()/_grains[g].getDensity();
-	        //cout << "Get Stress" << endl;	
+          //cout << "Get Stress" << endl; 
             Vector3d grainStress = _globalGrainState._grainStress[g]/Volume;  //EDIT
             //Vector3d grainStress;
             //grainStress << 0.0, 0.0, 0.0;
@@ -3656,7 +3757,7 @@ public:
             // cout << "Breakage Real Start for grain: " << g << endl;
             //if ( (_grains[g].getFracFlag() && _globalGrainState._grainCoord[g].size() >= 2) ||  (_grains[g].getFracFlag() && open_flag)      ) {
             if (    (_grains[g].getFracFlag() && open_flag)     ) { //Only thickness prob., no stress for now              
- 	         	//cout << "Breakage Real Start for grain IN: " << g << endl;
+            //cout << "Breakage Real Start for grain IN: " << g << endl;
 //              cout << "coord # " << _globalGrainState._grainCoord[g].size() << endl;
                 /*
                  * Get Grain 1 Info
@@ -4576,197 +4677,197 @@ public:
 
         if (_grains[g].getFracFlag() == true ){
             cout << "We really have fracture for grain: " << g << endl;
-	//      cout << "coord # " << _globalGrainState._grainCoord[g].size() << endl;
-	        /*
-	         * Get Grain 1 Info
-	         */
-	        
-	        //Vector2d pF1;
-	        //Vector2d pF2;
-	        
-	        //Get Source Grain Properties
-	        Vector2d g1cm = _grains[g].getCmLset();
+  //      cout << "coord # " << _globalGrainState._grainCoord[g].size() << endl;
+          /*
+           * Get Grain 1 Info
+           */
+          
+          //Vector2d pF1;
+          //Vector2d pF2;
+          
+          //Get Source Grain Properties
+          Vector2d g1cm = _grains[g].getCmLset();
 
-	        vector<Vector2d> g1p0 = _grains[g].getPointList();
+          vector<Vector2d> g1p0 = _grains[g].getPointList();
 
-	        size_t np1 = g1p0.size();
-	        size_t gid = _grains[g].getId();
-	        Levelset2d g1lset = _grains[g].getLset();
-	        vector<double> g1Lset = g1lset.getLevelset();
+          size_t np1 = g1p0.size();
+          size_t gid = _grains[g].getId();
+          Levelset2d g1lset = _grains[g].getLset();
+          vector<double> g1Lset = g1lset.getLevelset();
 
-	        Levelset2d g1lsettemp = _grains[g].getgrainTemp2D();
-	        vector<double> g1Lsettemp = g1lsettemp.getLevelset();
-	        
-	        size_t Xdim = g1lset.getXdim();
-	        size_t Ydim = g1lset.getYdim();
+          Levelset2d g1lsettemp = _grains[g].getgrainTemp2D();
+          vector<double> g1Lsettemp = g1lsettemp.getLevelset();
+          
+          size_t Xdim = g1lset.getXdim();
+          size_t Ydim = g1lset.getYdim();
 
-	        vector<Vector2d>  g1ipoint(np1);
-	        vector<double>  g1ishear(np1);
-	        vector<size_t>  g1icontact(np1);
+          vector<Vector2d>  g1ipoint(np1);
+          vector<double>  g1ishear(np1);
+          vector<size_t>  g1icontact(np1);
 
-	        double gdense = _grains[g].getDensity();
+          double gdense = _grains[g].getDensity();
 
-	        
-
-
-	        //vector<PointInfo> g1i(np1);
-
-	        const double cos1 = cos(_grains[g].getTheta());
-	        const double sin1 = sin(_grains[g].getTheta());
-	        for (size_t i = 0; i<np1;i++){
-	          //must unrotate and bring to origin
-	//          g1i[i].point << (g1p[i](0)-_grains[g].getPosition()(0))*cos1 + (g1p[i](1)-_grains[g].getPosition()(1))*sin1,
-	//                        -(g1p[i](0)-_grains[g].getPosition()(0))*sin1 + (g1p[i](1)-_grains[g].getPosition()(1))*cos1;
-	          //g1ipoint = g1p0[i];
-	          //
-	          //g1ishear = _grains[g].getNodeShears()[i];
-	          //g1icontact = _grains[g].getNodeContact()[i];
-	        }
-
-	        /*
-	         * Find Splitter Shape
-	         */
-	        //TwoHighestForcesLocs(pF1,pF2,g,g1i);
-
-	        //double bigV = M_PI*_grains[g].getRadius()*_grains[g].getRadius();
-	        //double g1V  = _grains[g].getMass()/rhoice;
-	        
-	        //if (bigV/g1V > _fracProps.getRoMratio() || pF2 == pF1){
-	        //  ClosestPoint(pF1,g1p0);
-	        //  pF2 = Vector2d(0.,0.);
-	        //}
+          
 
 
+          //vector<PointInfo> g1i(np1);
 
-	        /*
-	         * Create Splitter
-	         */
+          const double cos1 = cos(_grains[g].getTheta());
+          const double sin1 = sin(_grains[g].getTheta());
+          for (size_t i = 0; i<np1;i++){
+            //must unrotate and bring to origin
+  //          g1i[i].point << (g1p[i](0)-_grains[g].getPosition()(0))*cos1 + (g1p[i](1)-_grains[g].getPosition()(1))*sin1,
+  //                        -(g1p[i](0)-_grains[g].getPosition()(0))*sin1 + (g1p[i](1)-_grains[g].getPosition()(1))*cos1;
+            //g1ipoint = g1p0[i];
+            //
+            //g1ishear = _grains[g].getNodeShears()[i];
+            //g1icontact = _grains[g].getNodeContact()[i];
+          }
 
+          /*
+           * Find Splitter Shape
+           */
+          //TwoHighestForcesLocs(pF1,pF2,g,g1i);
 
-	        //get points that define split line in the level set reference frame
-	        //Vector2d splitpt1 = pF1 + g1cm;
-	        //Vector2d splitpt2 = pF2 + g1cm;
-	       
-	        //REDEFINE WITH NEW DATA
-	        //Vector2d splitpt1
-	        //Vector2d splitpt2
-
-	        //make splitter surface points
-	        //vector<Vector2d> splpts0 = _fracProps.MakeSplitter(_grains[g],splitpt1,splitpt2);
-	        //make splitter level set
-	        //vector<double> splitset = g1lset.makeFracSurfaceLine(splitpt1,splitpt2);
-	        //output splitset if desired
-	        // _fracProps.SaveSplitter(splpts0,splitset,Xdim,Ydim);
+          //double bigV = M_PI*_grains[g].getRadius()*_grains[g].getRadius();
+          //double g1V  = _grains[g].getMass()/rhoice;
+          
+          //if (bigV/g1V > _fracProps.getRoMratio() || pF2 == pF1){
+          //  ClosestPoint(pF1,g1p0);
+          //  pF2 = Vector2d(0.,0.);
+          //}
 
 
 
-	        size_t pointbreak = _grains[g].getFracLoc();
+          /*
+           * Create Splitter
+           */
+
+
+          //get points that define split line in the level set reference frame
+          //Vector2d splitpt1 = pF1 + g1cm;
+          //Vector2d splitpt2 = pF2 + g1cm;
+         
+          //REDEFINE WITH NEW DATA
+          //Vector2d splitpt1
+          //Vector2d splitpt2
+
+          //make splitter surface points
+          //vector<Vector2d> splpts0 = _fracProps.MakeSplitter(_grains[g],splitpt1,splitpt2);
+          //make splitter level set
+          //vector<double> splitset = g1lset.makeFracSurfaceLine(splitpt1,splitpt2);
+          //output splitset if desired
+          // _fracProps.SaveSplitter(splpts0,splitset,Xdim,Ydim);
+
+
+
+          size_t pointbreak = _grains[g].getFracLoc();
 
 
 
 
 
-	        /*
-	         * Make New Grains (using Lset and Surface Points)
-	         */
+          /*
+           * Make New Grains (using Lset and Surface Points)
+           */
 
 
-	        //make new Lsets
-	        //vector<double> g2Lset(splitset.size());
-	        //vector<double> g3Lset(splitset.size());
-	        //for(size_t i=0; i<splitset.size();i++){
-	        //  g2Lset[i] = max(splitset[i],g1Lset[i]);
-	        //  g3Lset[i] = max(splitset[i]*-1.,g1Lset[i]);
-	        //}
+          //make new Lsets
+          //vector<double> g2Lset(splitset.size());
+          //vector<double> g3Lset(splitset.size());
+          //for(size_t i=0; i<splitset.size();i++){
+          //  g2Lset[i] = max(splitset[i],g1Lset[i]);
+          //  g3Lset[i] = max(splitset[i]*-1.,g1Lset[i]);
+          //}
 
-	        //reinit due to imperfect set ops
-	        //g2Lset = reinit(g2Lset); //need to build in Levelset2d.h
-	        //g3Lset = reinit(g3Lset);
+          //reinit due to imperfect set ops
+          //g2Lset = reinit(g2Lset); //need to build in Levelset2d.h
+          //g3Lset = reinit(g3Lset);
 
-	        
-	        // cout<<"LSET TO SPLIT"<<endl; 
-	        // for (size_t j = 0; j < g1lset.getYdim(); j++) {
-	        //     for (size_t i = 0; i < g1lset.getXdim(); i++) {
-	        //          cout<<"Value LSETSPLIT at i: "<< i <<" j: " << j <<" is: " << g1Lset[(j*g1lset.getXdim())+i] << endl;
-	        //     }
-	        // }
+          
+          // cout<<"LSET TO SPLIT"<<endl; 
+          // for (size_t j = 0; j < g1lset.getYdim(); j++) {
+          //     for (size_t i = 0; i < g1lset.getXdim(); i++) {
+          //          cout<<"Value LSETSPLIT at i: "<< i <<" j: " << j <<" is: " << g1Lset[(j*g1lset.getXdim())+i] << endl;
+          //     }
+          // }
 
-	        //Declare new level set vectors
-	        vector<double> g2Lset = g1Lset;
-	        vector<double> g3Lset = g1Lset;
+          //Declare new level set vectors
+          vector<double> g2Lset = g1Lset;
+          vector<double> g3Lset = g1Lset;
 
-	        //Temperature BCs of this new level sets will be updated in ComputeWorld()/TemperaModif() in which GeoLS define B.C. for Temperature
-	        vector<double> g2tempV = g1Lsettemp;
-	        vector<double> g3tempV = g1Lsettemp;
+          //Temperature BCs of this new level sets will be updated in ComputeWorld()/TemperaModif() in which GeoLS define B.C. for Temperature
+          vector<double> g2tempV = g1Lsettemp;
+          vector<double> g3tempV = g1Lsettemp;
 
 
-	        //LSET New Function for New Level Set
-	        // cout<<"LevelSetSplit"<<endl;
-	        // cout<<"pointbreak: "<< pointbreak<< endl;
-	        // cout<<"Length: "<<_grains[g].getLset().getXdim()<<endl;
-	        // _fracProps.VertSplitLSETS(_grains[g],pointbreak,g2Lset,g3Lset);
-	        // WITH TEMPERATURE
-	        _fracProps.VertSplitLSETS(_grains[g],pointbreak,g2tempV,g3tempV);
-	        _fracProps.VertSplitLSETSG(_grains[g],pointbreak,g2Lset,g3Lset);
+          //LSET New Function for New Level Set
+          // cout<<"LevelSetSplit"<<endl;
+          // cout<<"pointbreak: "<< pointbreak<< endl;
+          // cout<<"Length: "<<_grains[g].getLset().getXdim()<<endl;
+          // _fracProps.VertSplitLSETS(_grains[g],pointbreak,g2Lset,g3Lset);
+          // WITH TEMPERATURE
+          _fracProps.VertSplitLSETS(_grains[g],pointbreak,g2tempV,g3tempV);
+          _fracProps.VertSplitLSETSG(_grains[g],pointbreak,g2Lset,g3Lset);
 
-	        //New level sets
-	        Levelset2d g2lset(g2Lset, Xdim, Ydim);
-	        Levelset2d g3lset(g3Lset, Xdim, Ydim);
+          //New level sets
+          Levelset2d g2lset(g2Lset, Xdim, Ydim);
+          Levelset2d g3lset(g3Lset, Xdim, Ydim);
 
             Levelset2d g2temp(g2tempV, Xdim, Ydim);
             Levelset2d g3temp(g3tempV, Xdim, Ydim);
 
 
 
-	        /*
-	         * Find Physical Properties
-	         */
-	        double mass2;
-	        Vector2d g2cm;
-	        double I2;
-	        cout << "frac density" << gdense << endl;
-	        _fracProps.findGrainProps(g2temp, mass2, g2cm, I2, gdense);
+          /*
+           * Find Physical Properties
+           */
+          double mass2;
+          Vector2d g2cm;
+          double I2;
+          cout << "frac density" << gdense << endl;
+          _fracProps.findGrainProps(g2temp, mass2, g2cm, I2, gdense);
 
-	        double mass3;
-	        Vector2d g3cm;
-	        double I3;
-	        _fracProps.findGrainProps(g3temp, mass3, g3cm, I3, gdense);
-	        /*
-	         * Position grains correctly, removing remnant
-	         -//s of the grain 1 reference frame
-	         *
-	         */
-	        cout << "New mass for grain 1 gen is : " <<  mass2 <<endl;
-	        cout << "New mass for grain 2 gen is : " <<  mass3 <<endl;
-	        //mass2 = mass2*0.91e-6;
-	        //mass3 = mass3*0.91e-6;
-
-
-	        //POINTS!!!!!
-	        //vector<PointInfo> g2i, g3i;
-	        vector <Vector2d> g2i(_grains[g].getnpoints()); 
-	        vector <Vector2d> g3i(_grains[g].getnpoints()); 
-
-	        //decides which splitter points stay
-	        //Input: splpts0, g2lset, g1cm;  Output: g2i, g3i
-	        //_fracProps.KeepSplitterPoints(splpts0,g1lset,g1cm,g2i,g3i);
-	        //decides which previous grain points stay
-	        //Input: splitpt1, splitpt2, g1i, g1cm;  Output: g2i, g3i
-	        //_fracProps.KeepGrainPoints(splitpt1,splitpt2,g1i,g1cm,g2i,g3i);
-
-	        //make sure potential grains has a reasonable amount of surface points
-	        //if (g2i.size()<5 || g3i.size()<5 ){
-	        //  return; //to ensure no NaNs in the crumbles
-	        //}
+          double mass3;
+          Vector2d g3cm;
+          double I3;
+          _fracProps.findGrainProps(g3temp, mass3, g3cm, I3, gdense);
+          /*
+           * Position grains correctly, removing remnant
+           -//s of the grain 1 reference frame
+           *
+           */
+          cout << "New mass for grain 1 gen is : " <<  mass2 <<endl;
+          cout << "New mass for grain 2 gen is : " <<  mass3 <<endl;
+          //mass2 = mass2*0.91e-6;
+          //mass3 = mass3*0.91e-6;
 
 
-	        //LSET New Function to Create New Point Sets from LSET and Sorted
-	        //cout<<"Point Generation"<<endl;
+          //POINTS!!!!!
+          //vector<PointInfo> g2i, g3i;
+          vector <Vector2d> g2i(_grains[g].getnpoints()); 
+          vector <Vector2d> g3i(_grains[g].getnpoints()); 
+
+          //decides which splitter points stay
+          //Input: splpts0, g2lset, g1cm;  Output: g2i, g3i
+          //_fracProps.KeepSplitterPoints(splpts0,g1lset,g1cm,g2i,g3i);
+          //decides which previous grain points stay
+          //Input: splitpt1, splitpt2, g1i, g1cm;  Output: g2i, g3i
+          //_fracProps.KeepGrainPoints(splitpt1,splitpt2,g1i,g1cm,g2i,g3i);
+
+          //make sure potential grains has a reasonable amount of surface points
+          //if (g2i.size()<5 || g3i.size()<5 ){
+          //  return; //to ensure no NaNs in the crumbles
+          //}
+
+
+          //LSET New Function to Create New Point Sets from LSET and Sorted
+          //cout<<"Point Generation"<<endl;
           bool fail_ind2 = false;
           bool fail_ind3 = false;
           cout << "New Point Generation Frac" << endl;
-	        _fracProps.PointsGen(g2temp,g2i, _grains[g].getnpoints(), g2cm, fail_ind2 );
-	        _fracProps.PointsGen(g3temp,g3i, _grains[g].getnpoints(), g3cm, fail_ind3 );
+          _fracProps.PointsGen(g2temp,g2i, _grains[g].getnpoints(), g2cm, fail_ind2 );
+          _fracProps.PointsGen(g3temp,g3i, _grains[g].getnpoints(), g3cm, fail_ind3 );
 
           if (fail_ind2 || fail_ind3)
           {
@@ -4774,320 +4875,320 @@ public:
             return; //Leave points the same to avoid mess and don't break
           }
 
-	        
-	         //cout<<"Point Generation End"<<endl;
+          
+           //cout<<"Point Generation End"<<endl;
 
-	        //save number of points for grains
-	        size_t np2 = g2i.size();
-	        size_t np3 = g3i.size();
-
-
-
-	        double cosine1 = cos1;
-	        double sine1 = sin1;
-
-
-	        Vector2d position2;
-	        //position2 = _grains[g].getPosition()-Vector2d((g1cm(0)-g2cm(0))*cos1 - (g1cm(1)-g2cm(1))*sin1,
-	        //                                          (g1cm(0)-g2cm(0))*sin1 + (g1cm(1)-g2cm(1))*cos1);
-	        position2 = _grains[g].getPosition()-Vector2d((g1cm(0)-g2cm(0))*cosine1 - (g1cm(1)-g2cm(1))*sine1,
-	                                                  (g1cm(0)-g2cm(0))*sine1 + (g1cm(1)-g2cm(1))*cosine1);
-
-
-	        double maxR2 = 0;
-	        //vector<Vector2d> g2p0, g3p0;
-
-	        //shift points to correct position
-	        //cout<<"Radius Loop 2"<<endl;
-	        //cout<<"FOR DEBUG 2 ***"<<endl;
-	        //cout<<"g1cm x: "<< g1cm(0) << " , y: " << g1cm(1) <<  endl;
-	        //cout<<"g2cm x: "<< g2cm(0) << " , y: " << g2cm(1) <<  endl;
-	        //cout<<"Origin Grain Position X: "<< _grains[g].getPosition()(0) << " , y: " << _grains[g].getPosition()(1) << endl;
-	        //cout<<"Position 2 X: "<< position2(0) << " , y: " << position2(1) << endl;
-	        for (size_t i = 0; i<np2; i++){
-
-	          //g2i[i] += -g1cm+g2cm-_grains[g].getPosition();
-
-	          
-	          //g2i[i] += -(position2-g1cm)-_grains[g].getPosition();   //ADJUST A BIT
-	          g2i[i] += -g2cm;//-(g2cm-g1cm)-_grains[g].getPosition();
-
-	          if (g2i[i].norm() > maxR2){
-	            maxR2 = g2i[i].norm();
-	          }
-	        }
-
-
-	        //POINT REORDERING (need PointInfo)
-	        // reorder points to counterclockwise. ///!!!!!!!!!!!
-	        // sort(g2i.begin(), g2i.end(),pointsort);
-
-	        // for (size_t i=0;i<np2;i++){
-	        //   g2p0.push_back(g2i[i].point);
-	        // }
+          //save number of points for grains
+          size_t np2 = g2i.size();
+          size_t np3 = g3i.size();
 
 
 
+          double cosine1 = cos1;
+          double sine1 = sin1;
 
-	        //Vector2d position3 = _grains[g].getPosition()-Vector2d((g1cm(0)-g3cm(0))*cos1 - (g1cm(1)-g3cm(1))*sin1,
-	        //                                                        (g1cm(0)-g3cm(0))*sin1 + (g1cm(1)-g3cm(1))*cos1);
-	        Vector2d position3 = _grains[g].getPosition()-Vector2d((g1cm(0)-g3cm(0))*cosine1 - (g1cm(1)-g3cm(1))*sine1,
-	                                                                (g1cm(0)-g3cm(0))*sine1 + (g1cm(1)-g3cm(1))*cosine1);
-	        double maxR3 = 0;
-	        //shift points to correct position
-	        //cout<<"Radius Loop 3"<<endl;
 
-	        //cout<<"FOR DEBUG 3 ***"<<endl;
-	        //cout<<"g1cm x: "<< g1cm(0) << " , y: " << g1cm(1) <<  endl;
-	        //cout<<"g3cm x: "<< g3cm(0) << " , y: " << g3cm(1) <<  endl;
-	        //cout<<"Origin Grain Position X: "<< _grains[g].getPosition()(0) << " , y: " << _grains[g].getPosition()(1) << endl;
-	        //cout<<"Position 3 X: "<< position3(0) << " , y: " << position3(1) << endl;
-	        for (size_t i = 0; i<np3; i++){
-	          //g3i[i] += g1cm-g3cm-_grains[g].getPosition();
-	          
-	          g3i[i] += -g3cm;//-(g3cm-g1cm)-_grains[g].getPosition();
+          Vector2d position2;
+          //position2 = _grains[g].getPosition()-Vector2d((g1cm(0)-g2cm(0))*cos1 - (g1cm(1)-g2cm(1))*sin1,
+          //                                          (g1cm(0)-g2cm(0))*sin1 + (g1cm(1)-g2cm(1))*cos1);
+          position2 = _grains[g].getPosition()-Vector2d((g1cm(0)-g2cm(0))*cosine1 - (g1cm(1)-g2cm(1))*sine1,
+                                                    (g1cm(0)-g2cm(0))*sine1 + (g1cm(1)-g2cm(1))*cosine1);
 
-	          //Find bbox radius
-	          if (g3i[i].norm() > maxR3){
-	            maxR3 = g3i[i].norm();
-	          }
-	        }
 
-	        //POINT REORDERING (need PointInfo)
-	        // sort indexes based on comparing values in g3p0 b
-	        //sort(g3i.begin(), g3i.end(),pointsort);
+          double maxR2 = 0;
+          //vector<Vector2d> g2p0, g3p0;
 
-	        //for (size_t i=0;i<np3;i++){
-	        //  g3p0.push_back(g3i[i].point);
-	        //}
+          //shift points to correct position
+          //cout<<"Radius Loop 2"<<endl;
+          //cout<<"FOR DEBUG 2 ***"<<endl;
+          //cout<<"g1cm x: "<< g1cm(0) << " , y: " << g1cm(1) <<  endl;
+          //cout<<"g2cm x: "<< g2cm(0) << " , y: " << g2cm(1) <<  endl;
+          //cout<<"Origin Grain Position X: "<< _grains[g].getPosition()(0) << " , y: " << _grains[g].getPosition()(1) << endl;
+          //cout<<"Position 2 X: "<< position2(0) << " , y: " << position2(1) << endl;
+          for (size_t i = 0; i<np2; i++){
+
+            //g2i[i] += -g1cm+g2cm-_grains[g].getPosition();
+
+            
+            //g2i[i] += -(position2-g1cm)-_grains[g].getPosition();   //ADJUST A BIT
+            g2i[i] += -g2cm;//-(g2cm-g1cm)-_grains[g].getPosition();
+
+            if (g2i[i].norm() > maxR2){
+              maxR2 = g2i[i].norm();
+            }
+          }
+
+
+          //POINT REORDERING (need PointInfo)
+          // reorder points to counterclockwise. ///!!!!!!!!!!!
+          // sort(g2i.begin(), g2i.end(),pointsort);
+
+          // for (size_t i=0;i<np2;i++){
+          //   g2p0.push_back(g2i[i].point);
+          // }
 
 
 
 
-	        //check thinness of potential grains in case they could slide into other grains
-	        Vector2d g2min,g3min; //closest surface point to centroid
-	        double g2minR,g3minR; //minimum distance from centoid to surface
-	        ClosestPoint(g2min,g2i);
-	        ClosestPoint(g3min,g3i);
-	        g2minR = g2min.norm();
-	        g3minR = g3min.norm();
+          //Vector2d position3 = _grains[g].getPosition()-Vector2d((g1cm(0)-g3cm(0))*cos1 - (g1cm(1)-g3cm(1))*sin1,
+          //                                                        (g1cm(0)-g3cm(0))*sin1 + (g1cm(1)-g3cm(1))*cos1);
+          Vector2d position3 = _grains[g].getPosition()-Vector2d((g1cm(0)-g3cm(0))*cosine1 - (g1cm(1)-g3cm(1))*sine1,
+                                                                  (g1cm(0)-g3cm(0))*sine1 + (g1cm(1)-g3cm(1))*cosine1);
+          double maxR3 = 0;
+          //shift points to correct position
+          //cout<<"Radius Loop 3"<<endl;
 
-	        //Check distance tolerance
-	        if (g2minR < .005|| g3minR < .005) {
-	          return;
-	        }
+          //cout<<"FOR DEBUG 3 ***"<<endl;
+          //cout<<"g1cm x: "<< g1cm(0) << " , y: " << g1cm(1) <<  endl;
+          //cout<<"g3cm x: "<< g3cm(0) << " , y: " << g3cm(1) <<  endl;
+          //cout<<"Origin Grain Position X: "<< _grains[g].getPosition()(0) << " , y: " << _grains[g].getPosition()(1) << endl;
+          //cout<<"Position 3 X: "<< position3(0) << " , y: " << position3(1) << endl;
+          for (size_t i = 0; i<np3; i++){
+            //g3i[i] += g1cm-g3cm-_grains[g].getPosition();
+            
+            g3i[i] += -g3cm;//-(g3cm-g1cm)-_grains[g].getPosition();
+
+            //Find bbox radius
+            if (g3i[i].norm() > maxR3){
+              maxR3 = g3i[i].norm();
+            }
+          }
+
+          //POINT REORDERING (need PointInfo)
+          // sort indexes based on comparing values in g3p0 b
+          //sort(g3i.begin(), g3i.end(),pointsort);
+
+          //for (size_t i=0;i<np3;i++){
+          //  g3p0.push_back(g3i[i].point);
+          //}
 
 
-	//        if (M_PI*maxR2*maxR2/(mass2) > _fracProps.getMaxRoM() || M_PI*maxR3*maxR3/(mass3) > _fracProps.getMaxRoM() ){
-	//          return; //to ensure no NaNs in the crumbles
-	//        }
 
-	        /*
-	         * Create grains
-	         */
 
-	        //Grain2d g2 = Grain2d(mass2, position2, _grains[g].getVelocity(), I2, _grains[g].getTheta(), _grains[g].getOmega(),
-	        //            g2cm, g2p0, maxR2, g2lset, _grains[g].getKn(), _grains[g].getKs(), _grains[g].getMu(), _maxId+1);
+          //check thinness of potential grains in case they could slide into other grains
+          Vector2d g2min,g3min; //closest surface point to centroid
+          double g2minR,g3minR; //minimum distance from centoid to surface
+          ClosestPoint(g2min,g2i);
+          ClosestPoint(g3min,g3i);
+          g2minR = g2min.norm();
+          g3minR = g3min.norm();
 
-	        //cout<<"New grains are created"<<endl;
-	        bool tempflag = false;
-	        int temploc = 0;
-	        double time_fail = 1.000;
-	        double orig_fail = 0.000;
-	        Grain2d g2 = Grain2d(mass2, position2, _grains[g].getVelocity(), 
-	                         mass2, _grains[g].getTemperature(), _grains[g].getThickness(), _grains[g].getMthick(), _grains[g].getTemperature(), _grains[g].getThickness(), _grains[g].getUtemper(), _grains[g].getUtemper(), g2temp, g2temp, 
-	                         I2, _grains[g].getTheta(), _grains[g].getOmega(), g2cm, g2i, _grains[g].getnpoints(), maxR2, 
-	                         g2lset, g2lset, 0, _grains[g].getId()+1, _grains[g].getKn(), _grains[g].getKs(), _grains[g].getMu(), tempflag, temploc,
+          //Check distance tolerance
+          if (g2minR < .005|| g3minR < .005) {
+            return;
+          }
+
+
+  //        if (M_PI*maxR2*maxR2/(mass2) > _fracProps.getMaxRoM() || M_PI*maxR3*maxR3/(mass3) > _fracProps.getMaxRoM() ){
+  //          return; //to ensure no NaNs in the crumbles
+  //        }
+
+          /*
+           * Create grains
+           */
+
+          //Grain2d g2 = Grain2d(mass2, position2, _grains[g].getVelocity(), I2, _grains[g].getTheta(), _grains[g].getOmega(),
+          //            g2cm, g2p0, maxR2, g2lset, _grains[g].getKn(), _grains[g].getKs(), _grains[g].getMu(), _maxId+1);
+
+          //cout<<"New grains are created"<<endl;
+          bool tempflag = false;
+          int temploc = 0;
+          double time_fail = 1.000;
+          double orig_fail = 0.000;
+          Grain2d g2 = Grain2d(mass2, position2, _grains[g].getVelocity(), 
+                           mass2, _grains[g].getTemperature(), _grains[g].getThickness(), _grains[g].getMthick(), _grains[g].getTemperature(), _grains[g].getThickness(), _grains[g].getUtemper(), _grains[g].getUtemper(), g2temp, g2temp, 
+                           I2, _grains[g].getTheta(), _grains[g].getOmega(), g2cm, g2i, _grains[g].getnpoints(), maxR2, 
+                           g2lset, g2lset, 0, _grains[g].getId()+1, _grains[g].getKn(), _grains[g].getKs(), _grains[g].getMu(), tempflag, temploc,
                            _grains[g].getgrainStress2D(), _grains[g].getgrainDamage() , _grains[g].getgrainThickness(), g2i, time_fail, orig_fail); //_grains[g].getId()+1
-	    
+      
 
 
-	        //g2.changeDensity(_grains[g].getDensity());
-	        for (size_t i=0;i<np2;i++){
-	          //g2.getNodeShearsNonConst()[i]  = g2i[i].shear;
-	          //g2.getNodeContactNonConst()[i] = g2i[i].contact;
-	        }
+          //g2.changeDensity(_grains[g].getDensity());
+          for (size_t i=0;i<np2;i++){
+            //g2.getNodeShearsNonConst()[i]  = g2i[i].shear;
+            //g2.getNodeContactNonConst()[i] = g2i[i].contact;
+          }
 
-	        //This is to serve the new grain as a file
-	        //_fracProps.SaveGrain(g2,g2p0);
+          //This is to serve the new grain as a file
+          //_fracProps.SaveGrain(g2,g2p0);
 
 
-	        //Grain2d g3 = Grain2d(mass3, position3, _grains[g].getVelocity(), I3, _grains[g].getTheta(), _grains[g].getOmega(),
-	        //            g3cm, g3p0, maxR3, g3lset, _grains[g].getKn(), _grains[g].getKs(), _grains[g].getMu(), _maxId+2);
+          //Grain2d g3 = Grain2d(mass3, position3, _grains[g].getVelocity(), I3, _grains[g].getTheta(), _grains[g].getOmega(),
+          //            g3cm, g3p0, maxR3, g3lset, _grains[g].getKn(), _grains[g].getKs(), _grains[g].getMu(), _maxId+2);
 
-	        Grain2d g3 = Grain2d(mass3, position3, _grains[g].getVelocity(), 
-	                         mass3, _grains[g].getTemperature(), _grains[g].getThickness(), _grains[g].getMthick(), _grains[g].getTemperature(), _grains[g].getThickness(), _grains[g].getUtemper(), _grains[g].getUtemper(), g3temp, g3temp, 
-	                         I3, _grains[g].getTheta(), _grains[g].getOmega(), g3cm, g3i, _grains[g].getnpoints(), maxR3, 
-	                         g3lset, g3lset, 1, _grains[g].getId()+2, _grains[g].getKn(), _grains[g].getKs(), _grains[g].getMu(), tempflag, temploc,
+          Grain2d g3 = Grain2d(mass3, position3, _grains[g].getVelocity(), 
+                           mass3, _grains[g].getTemperature(), _grains[g].getThickness(), _grains[g].getMthick(), _grains[g].getTemperature(), _grains[g].getThickness(), _grains[g].getUtemper(), _grains[g].getUtemper(), g3temp, g3temp, 
+                           I3, _grains[g].getTheta(), _grains[g].getOmega(), g3cm, g3i, _grains[g].getnpoints(), maxR3, 
+                           g3lset, g3lset, 1, _grains[g].getId()+2, _grains[g].getKn(), _grains[g].getKs(), _grains[g].getMu(), tempflag, temploc,
                            _grains[g].getgrainStress2D(), _grains[g].getgrainDamage() , _grains[g].getgrainThickness(), g3i, time_fail, orig_fail);  //_grains[g].getId()+2
-	        
+          
 
 
-	        //g3.changeDensity(_grains[g].getDensity());
-	//        for (size_t i=0;i<np3;i++){
-	//          g3.getNodeShearsNonConst()[i]  = g3i[i].shear;
-	//          g3.getNodeContactNonConst()[i] = g3i[i].contact;
-	//        }
+          //g3.changeDensity(_grains[g].getDensity());
+  //        for (size_t i=0;i<np3;i++){
+  //          g3.getNodeShearsNonConst()[i]  = g3i[i].shear;
+  //          g3.getNodeContactNonConst()[i] = g3i[i].contact;
+  //        }
 
-	        //send shears to "master" grains
-	//        double dist = 50;
-	////        cout << "g3isize " << g3i.size() << " " << np3 << endl;
-	//        vector<Vector2d> g3_moved_pts = g3.getPointList();
-	        for (size_t i=0;i<np3;i++){
-	//          if (g3i[i].contact > _maxId){ //contact with wall; shear stays
+          //send shears to "master" grains
+  //        double dist = 50;
+  ////        cout << "g3isize " << g3i.size() << " " << np3 << endl;
+  //        vector<Vector2d> g3_moved_pts = g3.getPointList();
+          for (size_t i=0;i<np3;i++){
+  //          if (g3i[i].contact > _maxId){ //contact with wall; shear stays
 
-	            //g3.getNodeShearsNonConst()[i] = g3i[i].shear;
-	            //g3.getNodeContactNonConst()[i] = g3i[i].contact;
-
-
-	////            cout << "\nwall " << g3i[i].contact << "\n"<<endl;
-	//          }
-	//          else if (g3i[i].contact>0){ //contact with grain; shear goes to other grain
-	//            //loop over each possible point and search for closest one
-	//            size_t pt_id;
-	//
-	//            vector<Vector2d> target_grain_pts = _grains[FindGrainFromId(g3i[i].contact)].getPointList();
-	//            for (size_t j = 0;j<target_grain_pts.size();j++){
-	//              if ((g3_moved_pts[i]-target_grain_pts[j]).norm() < dist){
-	//                dist = (g3_moved_pts[i]-target_grain_pts[j]).norm();
-	//                pt_id = j;
-	//              }
-	//            }
-	////            cout << "\ndistance " << dist << "\n"<<endl;
-	//            _grains[FindGrainFromId(g3i[i].contact)].getNodeContactNonConst()[pt_id] = g3.getId();
-	//            _grains[FindGrainFromId(g3i[i].contact)].getNodeShearsNonConst()[pt_id] = g3i[i].shear;
-	//          }
-	        }
-
-	        //_fracProps.SaveGrain(g3,g3p0);
-
-	        //double yield = _grains[g].getYield();
-	        //g3.changeYield(yield*pow(_grains[g].getDiameter()/g3.getDiameter(),3./3.));
-	        //g2.changeYield(yield*pow(_grains[g].getDiameter()/g2.getDiameter(),3./3.));
+              //g3.getNodeShearsNonConst()[i] = g3i[i].shear;
+              //g3.getNodeContactNonConst()[i] = g3i[i].contact;
 
 
-	        //find shears where g was slave and move to master
-	        //cout << "Master" << endl; 
-	        for (size_t i = 0; i<g;i++){
-	          //check if grain was a master grain on g
-	          vector<size_t> master_contacts = _grains[i].getNodeContact();
-	          bool master = std::binary_search(master_contacts.begin(),master_contacts.end(),gid); //true if master grain was contacting fractured grain
-	          if (master) {
-	//            cout << "Position " << g2.getPosition().transpose() << " " << g3.getPosition().transpose() << " " << _grains[i].getPosition().transpose() << endl;
-	            //move shears to g2,g3
-	            //find node
-	            vector<size_t> nodes;
-	            size_t n=0;
-	            for (size_t j = 0; j<master_contacts.size();j++){
-	              if (master_contacts[j] == gid){
-	                nodes.push_back(j);
-	                n++;
-	              }
-	            }
+  ////            cout << "\nwall " << g3i[i].contact << "\n"<<endl;
+  //          }
+  //          else if (g3i[i].contact>0){ //contact with grain; shear goes to other grain
+  //            //loop over each possible point and search for closest one
+  //            size_t pt_id;
+  //
+  //            vector<Vector2d> target_grain_pts = _grains[FindGrainFromId(g3i[i].contact)].getPointList();
+  //            for (size_t j = 0;j<target_grain_pts.size();j++){
+  //              if ((g3_moved_pts[i]-target_grain_pts[j]).norm() < dist){
+  //                dist = (g3_moved_pts[i]-target_grain_pts[j]).norm();
+  //                pt_id = j;
+  //              }
+  //            }
+  ////            cout << "\ndistance " << dist << "\n"<<endl;
+  //            _grains[FindGrainFromId(g3i[i].contact)].getNodeContactNonConst()[pt_id] = g3.getId();
+  //            _grains[FindGrainFromId(g3i[i].contact)].getNodeShearsNonConst()[pt_id] = g3i[i].shear;
+  //          }
+          }
 
-	            //get point location
-	            vector<Vector2d> master_pts = _grains[i].getPointList();
+          //_fracProps.SaveGrain(g3,g3p0);
 
-	            vector<Vector2d> g2_pts = g2.getPointList();
-	            vector<Vector2d> g3_pts = g3.getPointList();
-
-	            for(size_t j=0;j<n;j++){
-	              //find closest pt on either g2 or g3
-	              Vector2d master_pt = master_pts[nodes[j]];
-	              size_t kmin = 0;
-	              double dist = 50.;
-	              for (size_t k = 0; k<np2;k++){
-	                double dist_k = (master_pt-g2_pts[k]).norm();
-	//                cout << "dist_k " << dist_k << endl;
-	                if (dist_k < dist){
-	                  dist = dist_k;
-	                  kmin = k;
-	                }
-	              }
-	              for (size_t k = np2; k<np2+np3;k++){
-	                double dist_k = (master_pt-g3_pts[k-np2]).norm();
-	                if (dist_k < dist){
-	                  dist = dist_k;
-	                  kmin = k;
-	                }
-	              }
-	//              cout << "dist " << dist << endl;
-	              if (dist < 1) {
-	                //send shears to fragments
-	                if (kmin>=np2) {
-	                  kmin -= np2; //on grain 3
-	                  g3.getNodeShearsNonConst()[kmin]  = _grains[i].getNodeShears()[nodes[j]];
-	                  g3.getNodeContactNonConst()[kmin] = _grains[i].getNodeContact()[nodes[j]];
-	                } else { //on grain 2
-	                  g2.getNodeShearsNonConst()[kmin]  = _grains[i].getNodeShears()[nodes[j]];
-	                  g2.getNodeContactNonConst()[kmin] = _grains[i].getNodeContact()[nodes[j]];
-	                }
-	                _grains[i].getNodeShearsNonConst()[nodes[j]] = 0;
-	                _grains[i].getNodeContactNonConst()[nodes[j]] = 0;
-	              }
-	            }
-	          }
-	        }
-
-	        /*
-	         * Add/Remove grains from world
-	         */
-	        //remove fractured grain
-	        //cout << "Delete original" << endl; 
-	        _grains.erase(_grains.begin()+g);
-	        _ngrains--;
-	        //cout << "Delete original end" << endl; 
-	        
-	        //Add new grains if not problematic
-	        //cout << "Add new" << endl; 
-	        //Our ordering goes left right
-
-	        for (size_t i = 0; i < _ngrains; i++){
-	        	if (i<g){
-	               _grains[i].changeId(_grains[i].getId()+2);
-	            }
-	            else{
-	               _grains[i].changeId(_grains[i].getId()+1);	
-	            }
-	        }
+          //double yield = _grains[g].getYield();
+          //g3.changeYield(yield*pow(_grains[g].getDiameter()/g3.getDiameter(),3./3.));
+          //g2.changeYield(yield*pow(_grains[g].getDiameter()/g2.getDiameter(),3./3.));
 
 
-	        if (_fracProps.ApplyFilter(g3)) {
-	          _grains.insert(_grains.begin(),g3);
-	          //_grains.push_back(g2);	  
-	          _ngrains++;
-	        }
-	        if (_fracProps.ApplyFilter(g2)){
-	          _grains.insert(_grains.begin(),g2);
-	          //_grains.push_back(g3);	
-	          _ngrains++;
-	        }
-	        //cout << "Add new end" << endl; 
+          //find shears where g was slave and move to master
+          //cout << "Master" << endl; 
+          for (size_t i = 0; i<g;i++){
+            //check if grain was a master grain on g
+            vector<size_t> master_contacts = _grains[i].getNodeContact();
+            bool master = std::binary_search(master_contacts.begin(),master_contacts.end(),gid); //true if master grain was contacting fractured grain
+            if (master) {
+  //            cout << "Position " << g2.getPosition().transpose() << " " << g3.getPosition().transpose() << " " << _grains[i].getPosition().transpose() << endl;
+              //move shears to g2,g3
+              //find node
+              vector<size_t> nodes;
+              size_t n=0;
+              for (size_t j = 0; j<master_contacts.size();j++){
+                if (master_contacts[j] == gid){
+                  nodes.push_back(j);
+                  n++;
+                }
+              }
 
-	//        _grains.insert(_grains.begin(),g2);
-	//        _grains.insert(_grains.begin(),g3);
-	//
-	//        _ngrains++;
-	//        _ngrains++;
+              //get point location
+              vector<Vector2d> master_pts = _grains[i].getPointList();
 
-	        //_maxId++;_maxId++;
+              vector<Vector2d> g2_pts = g2.getPointList();
+              vector<Vector2d> g3_pts = g3.getPointList();
 
-	        //_globalGrainState._grainForces[0] = Vector2d(0.,0.);
-	        //_globalGrainState._grainMoments[0] = 0.0;
-	        //_globalGrainState._wallForces[0] = Vector2d(0.,0.);
-	        //_globalGrainState._grainForces[_ngrains] = _globalGrainState._grainForces[0];
-	        //_globalGrainState._grainMoments[_ngrains] = _globalGrainState._grainMoments[0];
-	        //_globalGrainState._wallForces[_ngrains] = _globalGrainState._wallForces[0];
+              for(size_t j=0;j<n;j++){
+                //find closest pt on either g2 or g3
+                Vector2d master_pt = master_pts[nodes[j]];
+                size_t kmin = 0;
+                double dist = 50.;
+                for (size_t k = 0; k<np2;k++){
+                  double dist_k = (master_pt-g2_pts[k]).norm();
+  //                cout << "dist_k " << dist_k << endl;
+                  if (dist_k < dist){
+                    dist = dist_k;
+                    kmin = k;
+                  }
+                }
+                for (size_t k = np2; k<np2+np3;k++){
+                  double dist_k = (master_pt-g3_pts[k-np2]).norm();
+                  if (dist_k < dist){
+                    dist = dist_k;
+                    kmin = k;
+                  }
+                }
+  //              cout << "dist " << dist << endl;
+                if (dist < 1) {
+                  //send shears to fragments
+                  if (kmin>=np2) {
+                    kmin -= np2; //on grain 3
+                    g3.getNodeShearsNonConst()[kmin]  = _grains[i].getNodeShears()[nodes[j]];
+                    g3.getNodeContactNonConst()[kmin] = _grains[i].getNodeContact()[nodes[j]];
+                  } else { //on grain 2
+                    g2.getNodeShearsNonConst()[kmin]  = _grains[i].getNodeShears()[nodes[j]];
+                    g2.getNodeContactNonConst()[kmin] = _grains[i].getNodeContact()[nodes[j]];
+                  }
+                  _grains[i].getNodeShearsNonConst()[nodes[j]] = 0;
+                  _grains[i].getNodeContactNonConst()[nodes[j]] = 0;
+                }
+              }
+            }
+          }
 
-	        _globalGrainState.reset();
-	        _globalGrainState.resize(_ngrains, _nwalls);
+          /*
+           * Add/Remove grains from world
+           */
+          //remove fractured grain
+          //cout << "Delete original" << endl; 
+          _grains.erase(_grains.begin()+g);
+          _ngrains--;
+          //cout << "Delete original end" << endl; 
+          
+          //Add new grains if not problematic
+          //cout << "Add new" << endl; 
+          //Our ordering goes left right
 
-	       cout << "Force Grain 2" << endl; 
+          for (size_t i = 0; i < _ngrains; i++){
+            if (i<g){
+                 _grains[i].changeId(_grains[i].getId()+2);
+              }
+              else{
+                 _grains[i].changeId(_grains[i].getId()+1); 
+              }
+          }
 
-	        cout << "begin compute world again" << endl;
-	        computeWorldState();
-	        cout << "end compute world again" << endl;
-	        //return; 
+
+          if (_fracProps.ApplyFilter(g3)) {
+            _grains.insert(_grains.begin(),g3);
+            //_grains.push_back(g2);    
+            _ngrains++;
+          }
+          if (_fracProps.ApplyFilter(g2)){
+            _grains.insert(_grains.begin(),g2);
+            //_grains.push_back(g3);  
+            _ngrains++;
+          }
+          //cout << "Add new end" << endl; 
+
+  //        _grains.insert(_grains.begin(),g2);
+  //        _grains.insert(_grains.begin(),g3);
+  //
+  //        _ngrains++;
+  //        _ngrains++;
+
+          //_maxId++;_maxId++;
+
+          //_globalGrainState._grainForces[0] = Vector2d(0.,0.);
+          //_globalGrainState._grainMoments[0] = 0.0;
+          //_globalGrainState._wallForces[0] = Vector2d(0.,0.);
+          //_globalGrainState._grainForces[_ngrains] = _globalGrainState._grainForces[0];
+          //_globalGrainState._grainMoments[_ngrains] = _globalGrainState._grainMoments[0];
+          //_globalGrainState._wallForces[_ngrains] = _globalGrainState._wallForces[0];
+
+          _globalGrainState.reset();
+          _globalGrainState.resize(_ngrains, _nwalls);
+
+         cout << "Force Grain 2" << endl; 
+
+          cout << "begin compute world again" << endl;
+          computeWorldState();
+          cout << "end compute world again" << endl;
+          //return; 
         }//if frac flag
     }//grains loop
     return; 
@@ -5396,175 +5497,202 @@ public:
         return 0;
     }
 
-	void applyBodyForce(Vector2d bodyForce) {
-		for (size_t i = 0; i < _ngrains; i++) {
-			_globalGrainState._grainForces[i] += bodyForce;
-		}
-	}
+  void applyBodyForce(Vector2d bodyForce) {
+    for (size_t i = 0; i < _ngrains; i++) {
+      _globalGrainState._grainForces[i] += bodyForce;
+    }
+  }
 
-	// Need to prescribe negative acceleration for gravity
-	void applyAcceleration(Vector2d acceleration) {
-			//double mfactor=0.;  //Temper
+  // Need to prescribe negative acceleration for gravity
+  void applyAcceleration(Vector2d acceleration) {
+      //double mfactor=0.;  //Temper
 
-		for (size_t i = 0; i < _ngrains; i++) {
+    for (size_t i = 0; i < _ngrains; i++) {
             //_grains[i].changeMassf(mfactor); //Temper
-			_globalGrainState._grainForces[i] += _grains[i].getMass()*acceleration; //*mfactor;
-		}
-	}
+      _globalGrainState._grainForces[i] += _grains[i].getMass()*acceleration; //*mfactor;
+    }
+  }
 
 
 
 
-	// take a timestep for each grain based off of the world's _globalGrainState
-	void grainTimestep() {
+  // take a timestep for each grain based off of the world's _globalGrainState
+  void grainTimestep() {
 
-		int numprocessors, rank;
-		MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
-		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int numprocessors, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 
-		#pragma omp parallel for default(none) schedule(static,1) //num_threads(12)
-		for (size_t i = 0; i < _ngrains; i++) {
-			_grains[i].takeTimestep(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt);
-			if (_grains[i].getPosition()(0) < 0 ) {
-				_grains[i].moveGrain(Vector2d(_offset(0), 0.) );
-			}
-			else if (_grains[i].getPosition()(0) > _offset(0)) {
-				_grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
-			}
-			if (_grains[i].getPosition()(1) < 0 ) {
-				_grains[i].moveGrain(Vector2d(0,_offset(1)) );
-			}
-			else if (_grains[i].getPosition()(1) > _offset(1)) {
-				_grains[i].moveGrain(Vector2d(0,-_offset(1)) );
-			}
+    #pragma omp parallel for default(none) schedule(static,1) //num_threads(12)
+    for (size_t i = 0; i < _ngrains; i++) {
+      _grains[i].takeTimestep(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt);
+      if (_grains[i].getPosition()(0) < 0 ) {
+        _grains[i].moveGrain(Vector2d(_offset(0), 0.) );
+      }
+      else if (_grains[i].getPosition()(0) > _offset(0)) {
+        _grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
+      }
+      if (_grains[i].getPosition()(1) < 0 ) {
+        _grains[i].moveGrain(Vector2d(0,_offset(1)) );
+      }
+      else if (_grains[i].getPosition()(1) > _offset(1)) {
+        _grains[i].moveGrain(Vector2d(0,-_offset(1)) );
+      }
 
-		}
-	}
-	
-	//Using fixed node list, make a binary list for timestepping
-	//Only works if _ngrains is stable and has a constant size (TODO) 
-	//If floes are removed we need to also shift movable_nodes
-	void grainTimestepMov() {
-		int numprocessors, rank;
-		MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
-		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    }
+  }
+  
+  // take a timestep for each grain based off of the world's _globalGrainState
+  void grainTimestepVelocity() {
 
-		#pragma omp parallel for default(none) schedule(static,1) //num_threads(12)
-		for (size_t i = 0; i < _ngrains; i++) {
-		    if (_movable_floes[i] == 1){
-    			_grains[i].takeTimestep(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt);
-    			if (_grains[i].getPosition()(0) < 0 ) {
-    				_grains[i].moveGrain(Vector2d(_offset(0), 0.) );
-    			}
-    			else if (_grains[i].getPosition()(0) > _offset(0)) {
-    				_grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
-    			}
-    			if (_grains[i].getPosition()(1) < 0 ) {
-    				_grains[i].moveGrain(Vector2d(0,_offset(1)) );
-    			}
-    			else if (_grains[i].getPosition()(1) > _offset(1)) {
-    				_grains[i].moveGrain(Vector2d(0,-_offset(1)) );
-    			}
-		    }
-		    //Special for loading grains
-		    else if(_grains[i].getLoadGrain()) {
-		        _grains[i].takeTimestepLoad(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt, _loadvel);
-    			if (_grains[i].getPosition()(0) < 0 ) {
-    				_grains[i].moveGrain(Vector2d(_offset(0), 0.) );
-    			}
-    			else if (_grains[i].getPosition()(0) > _offset(0)) {
-    				_grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
-    			}
-    			if (_grains[i].getPosition()(1) < 0 ) {
-    				_grains[i].moveGrain(Vector2d(0,_offset(1)) );
-    			}
-    			else if (_grains[i].getPosition()(1) > _offset(1)) {
-    				_grains[i].moveGrain(Vector2d(0,-_offset(1)) );
-    			}
-		    }
-		}
-	}
-	
-	//Load on both extremes
-	void grainTimestepMovUD() {
-		int numprocessors, rank;
-		MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
-		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int numprocessors, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-		#pragma omp parallel for default(none) schedule(static,1) //num_threads(12)
-		for (size_t i = 0; i < _ngrains; i++) {
-		    if (_movable_floes[i] == 1){
-    			_grains[i].takeTimestep(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt);
-    			if (_grains[i].getPosition()(0) < 0 ) {
-    				_grains[i].moveGrain(Vector2d(_offset(0), 0.) );
-    			}
-    			else if (_grains[i].getPosition()(0) > _offset(0)) {
-    				_grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
-    			}
-    			if (_grains[i].getPosition()(1) < 0 ) {
-    				_grains[i].moveGrain(Vector2d(0,_offset(1)) );
-    			}
-    			else if (_grains[i].getPosition()(1) > _offset(1)) {
-    				_grains[i].moveGrain(Vector2d(0,-_offset(1)) );
-    			}
-		    }
-		    //Special for loading grains Up
-		    else if(_grains[i].getLoadGrain() && _movable_floes[i] == 0) {
-		        _grains[i].takeTimestepLoad(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt, _loadvel);
-    			if (_grains[i].getPosition()(0) < 0 ) {
-    				_grains[i].moveGrain(Vector2d(_offset(0), 0.) );
-    			}
-    			else if (_grains[i].getPosition()(0) > _offset(0)) {
-    				_grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
-    			}
-    			if (_grains[i].getPosition()(1) < 0 ) {
-    				_grains[i].moveGrain(Vector2d(0,_offset(1)) );
-    			}
-    			else if (_grains[i].getPosition()(1) > _offset(1)) {
-    				_grains[i].moveGrain(Vector2d(0,-_offset(1)) );
-    			}
-		    }
-		    //Special for loading grains Down (for fixed under base case)
-		    else if(_grains[i].getLoadGrain() == false && _movable_floes[i] == 0) {
-		        _grains[i].takeTimestepLoad(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt, _loadvelD);
-    			if (_grains[i].getPosition()(0) < 0 ) {
-    				_grains[i].moveGrain(Vector2d(_offset(0), 0.) );
-    			}
-    			else if (_grains[i].getPosition()(0) > _offset(0)) {
-    				_grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
-    			}
-    			if (_grains[i].getPosition()(1) < 0 ) {
-    				_grains[i].moveGrain(Vector2d(0,_offset(1)) );
-    			}
-    			else if (_grains[i].getPosition()(1) > _offset(1)) {
-    				_grains[i].moveGrain(Vector2d(0,-_offset(1)) );
-    			}
-		    }		    
-		}
-	}
-	
-    void change_movable_floes(vector<size_t> & new_movable_floes) {
-		_movable_floes = new_movable_floes;
-	}
-	
-	void change_loadvel(Vector2d & newloadvel) {
-		_loadvel = newloadvel;
-	}
 
-	void change_loadvelD(Vector2d & newloadvel) {
-		_loadvelD = newloadvel;
-	}
+    #pragma omp parallel for default(none) schedule(static,1) //num_threads(12)
+    for (size_t i = 0; i < _ngrains; i++) {
+      _grains[i].takeTimestepVelocity(_flowspeed, _flowangle, _globalGrainState._grainMoments[i], _gDamping, _dt);
+      if (_grains[i].getPosition()(0) < 0 ) {
+        _grains[i].moveGrain(Vector2d(_offset(0), 0.) );
+      }
+      else if (_grains[i].getPosition()(0) > _offset(0)) {
+        _grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
+      }
+      if (_grains[i].getPosition()(1) < 0 ) {
+        _grains[i].moveGrain(Vector2d(0,_offset(1)) );
+      }
+      else if (_grains[i].getPosition()(1) > _offset(1)) {
+        _grains[i].moveGrain(Vector2d(0,-_offset(1)) );
+      }
 
-	// move grain
-	void moveGrain(const size_t & grainid, const Vector2d & amount) {
-		_grains[grainid].moveGrain(amount);
-	}
+    }
+  }
+  
+  //Using fixed node list, make a binary list for timestepping
+  //Only works if _ngrains is stable and has a constant size (TODO) 
+  //If floes are removed we need to also shift movable_nodes
+  void grainTimestepMov() {
+    int numprocessors, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-	// rotate grain
-	void rotateGrain(const size_t & grainid, const double & amount) {
-		_grains[grainid].changeRot(amount);
-	}
+    #pragma omp parallel for default(none) schedule(static,1) //num_threads(12)
+    for (size_t i = 0; i < _ngrains; i++) {
+        if (_movable_floes[i] == 1){
+          _grains[i].takeTimestep(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt);
+          if (_grains[i].getPosition()(0) < 0 ) {
+            _grains[i].moveGrain(Vector2d(_offset(0), 0.) );
+          }
+          else if (_grains[i].getPosition()(0) > _offset(0)) {
+            _grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
+          }
+          if (_grains[i].getPosition()(1) < 0 ) {
+            _grains[i].moveGrain(Vector2d(0,_offset(1)) );
+          }
+          else if (_grains[i].getPosition()(1) > _offset(1)) {
+            _grains[i].moveGrain(Vector2d(0,-_offset(1)) );
+          }
+        }
+        //Special for loading grains
+        else if(_grains[i].getLoadGrain()) {
+            _grains[i].takeTimestepLoad(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt, _loadvel);
+          if (_grains[i].getPosition()(0) < 0 ) {
+            _grains[i].moveGrain(Vector2d(_offset(0), 0.) );
+          }
+          else if (_grains[i].getPosition()(0) > _offset(0)) {
+            _grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
+          }
+          if (_grains[i].getPosition()(1) < 0 ) {
+            _grains[i].moveGrain(Vector2d(0,_offset(1)) );
+          }
+          else if (_grains[i].getPosition()(1) > _offset(1)) {
+            _grains[i].moveGrain(Vector2d(0,-_offset(1)) );
+          }
+        }
+    }
+  }
+  
+  //Load on both extremes
+  void grainTimestepMovUD() {
+    int numprocessors, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &numprocessors);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    #pragma omp parallel for default(none) schedule(static,1) //num_threads(12)
+    for (size_t i = 0; i < _ngrains; i++) {
+        if (_movable_floes[i] == 1){
+          _grains[i].takeTimestep(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt);
+          if (_grains[i].getPosition()(0) < 0 ) {
+            _grains[i].moveGrain(Vector2d(_offset(0), 0.) );
+          }
+          else if (_grains[i].getPosition()(0) > _offset(0)) {
+            _grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
+          }
+          if (_grains[i].getPosition()(1) < 0 ) {
+            _grains[i].moveGrain(Vector2d(0,_offset(1)) );
+          }
+          else if (_grains[i].getPosition()(1) > _offset(1)) {
+            _grains[i].moveGrain(Vector2d(0,-_offset(1)) );
+          }
+        }
+        //Special for loading grains Up
+        else if(_grains[i].getLoadGrain() && _movable_floes[i] == 0) {
+            _grains[i].takeTimestepLoad(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt, _loadvel);
+          if (_grains[i].getPosition()(0) < 0 ) {
+            _grains[i].moveGrain(Vector2d(_offset(0), 0.) );
+          }
+          else if (_grains[i].getPosition()(0) > _offset(0)) {
+            _grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
+          }
+          if (_grains[i].getPosition()(1) < 0 ) {
+            _grains[i].moveGrain(Vector2d(0,_offset(1)) );
+          }
+          else if (_grains[i].getPosition()(1) > _offset(1)) {
+            _grains[i].moveGrain(Vector2d(0,-_offset(1)) );
+          }
+        }
+        //Special for loading grains Down (for fixed under base case)
+        else if(_grains[i].getLoadGrain() == false && _movable_floes[i] == 0) {
+            _grains[i].takeTimestepLoad(_globalGrainState._grainForces[i], _globalGrainState._grainMoments[i], _gDamping, _dt, _loadvelD);
+          if (_grains[i].getPosition()(0) < 0 ) {
+            _grains[i].moveGrain(Vector2d(_offset(0), 0.) );
+          }
+          else if (_grains[i].getPosition()(0) > _offset(0)) {
+            _grains[i].moveGrain(Vector2d(-_offset(0), 0.) );
+          }
+          if (_grains[i].getPosition()(1) < 0 ) {
+            _grains[i].moveGrain(Vector2d(0,_offset(1)) );
+          }
+          else if (_grains[i].getPosition()(1) > _offset(1)) {
+            _grains[i].moveGrain(Vector2d(0,-_offset(1)) );
+          }
+        }       
+    }
+  }
+  
+  void change_movable_floes(vector<size_t> & new_movable_floes) {
+    _movable_floes = new_movable_floes;
+  }
+  
+  void change_loadvel(Vector2d & newloadvel) {
+    _loadvel = newloadvel;
+  }
+
+  void change_loadvelD(Vector2d & newloadvel) {
+    _loadvelD = newloadvel;
+  }
+
+  // move grain
+  void moveGrain(const size_t & grainid, const Vector2d & amount) {
+    _grains[grainid].moveGrain(amount);
+  }
+
+  // rotate grain
+  void rotateGrain(const size_t & grainid, const double & amount) {
+    _grains[grainid].changeRot(amount);
+  }
 
 
   //************ START FINE TIME STEPPING  *******************************//
@@ -5671,45 +5799,45 @@ public:
 
 
  //    //Remove Grain due to Melting (Fit to 2D)    //Verify that Grain Identity is Correct over Time!!!!
-	// void RemoveGrain(const size_t & grainid){
-	// //_grains[grainid] = _grains.back();
-	// //_grains.pop_back();
-	// //_ngrains--;
-	
-	// _grains.erase(_grains.begin()+grainid);
-	// _ngrains=_grains.size();
-	// _globalGrainState.resize(_ngrains, _nwalls);
-	// _globalGrainState.reset();
-	// }
+  // void RemoveGrain(const size_t & grainid){
+  // //_grains[grainid] = _grains.back();
+  // //_grains.pop_back();
+  // //_ngrains--;
+  
+  // _grains.erase(_grains.begin()+grainid);
+  // _ngrains=_grains.size();
+  // _globalGrainState.resize(_ngrains, _nwalls);
+  // _globalGrainState.reset();
+  // }
 
 
-	// change friction for particles
-	void changeMuGrains(const double & newmu) {
-		for (size_t i = 0; i < _ngrains; ++i) {
-			_grains[i].changeMu(newmu);
-		}
-	}
+  // change friction for particles
+  void changeMuGrains(const double & newmu) {
+    for (size_t i = 0; i < _ngrains; ++i) {
+      _grains[i].changeMu(newmu);
+    }
+  }
 
-	void changeKnGrains(const double & newkn) {
-		for (size_t i = 0; i < _ngrains; ++i) {
-			_grains[i].changeKn(newkn);
-		}
-	}
+  void changeKnGrains(const double & newkn) {
+    for (size_t i = 0; i < _ngrains; ++i) {
+      _grains[i].changeKn(newkn);
+    }
+  }
 
 
-	void changeOffset(const Vector2d & offset){
-		_offset = offset;
-	}
-	void changeDt(const double & dt) {
-		_dt = dt;
-	}
-	void changeGdamping(const double & gDamping) {
-		_gDamping = gDamping;
-	}
+  void changeOffset(const Vector2d & offset){
+    _offset = offset;
+  }
+  void changeDt(const double & dt) {
+    _dt = dt;
+  }
+  void changeGdamping(const double & gDamping) {
+    _gDamping = gDamping;
+  }
 
    void changestepup(size_t & stepup) {
-		_stepup = stepup;
-	}
+    _stepup = stepup;
+  }
 
  void changeSlopeDir(double & slopedir) {
     _slopedir = slopedir;
@@ -5717,6 +5845,10 @@ public:
 
  void changeFlowAngle(double & flowang) {
     _flowangle = flowang;
+  }
+  
+   void changeFlowSpeed(double & flowspeed) {
+    _flowspeed = flowspeed;
   }
 
    void changeFlowForce(double & flowfor) {
@@ -5756,10 +5888,10 @@ public:
 
 
     // const get methods
-	const vector<Grain2d> & getGrains() const {
-		return _grains;
+  const vector<Grain2d> & getGrains() const {
+    return _grains;
         
-	}
+  }
     
     const vector<Grain2d> & getGrainsWall() const {
         return _grainsWall;
@@ -5771,14 +5903,14 @@ public:
         return _walls;
     }
 
-	const GrainState2d & getGrainState() const {
-		return _globalGrainState;
-	}
+  const GrainState2d & getGrainState() const {
+    return _globalGrainState;
+  }
 
-	//	 non const get methods (members can be changed such as wall positions)
-	vector<Grain2d> & getGrainsNonConst() {
-		return _grains;
-	}
+  //   non const get methods (members can be changed such as wall positions)
+  vector<Grain2d> & getGrainsNonConst() {
+    return _grains;
+  }
     
     
     
@@ -5789,29 +5921,29 @@ public:
     }
     
     
-	const vector<Vector2d> & getGrainForces() const {
-		return _globalGrainState._grainForces;
-	}
-	const vector<double> & getGrainMoments() const {
-		return _globalGrainState._grainMoments;
-	}
-	const Vector3d & getStress() const {
-		return _globalGrainState._stressVoigt;
-	}
+  const vector<Vector2d> & getGrainForces() const {
+    return _globalGrainState._grainForces;
+  }
+  const vector<double> & getGrainMoments() const {
+    return _globalGrainState._grainMoments;
+  }
+  const Vector3d & getStress() const {
+    return _globalGrainState._stressVoigt;
+  }
 
 
-	void outputStress() {
+  void outputStress() {
         //cout << "Fx = " << _globalGrainState._grainForces(0) << endl;   //??
-		//cout << "Fy= " << _globalGrainState._grainForces(1) << endl;     //??
-		//cout << "M = " << _globalGrainState._grainMoments << endl;      //??
+    //cout << "Fy= " << _globalGrainState._grainForces(1) << endl;     //??
+    //cout << "M = " << _globalGrainState._grainMoments << endl;      //??
 
-		cout << "sigxx = " << _globalGrainState._stressVoigt(0) << endl;
-		cout << "sigyy = " << _globalGrainState._stressVoigt(1) << endl;
-		cout << "sigxy = " << _globalGrainState._stressVoigt(2) << endl;
-	}
-	
-	//Bonded Particle Method Properties (May 7, 2023)
-	void createBonds() {
+    cout << "sigxx = " << _globalGrainState._stressVoigt(0) << endl;
+    cout << "sigyy = " << _globalGrainState._stressVoigt(1) << endl;
+    cout << "sigxy = " << _globalGrainState._stressVoigt(2) << endl;
+  }
+  
+  //Bonded Particle Method Properties (May 7, 2023)
+  void createBonds() {
         Vector3i bondInfoIJ;
         size_t grainGrainBonds = 0;
         
@@ -5897,21 +6029,21 @@ public:
         // }
     }
     
-    void outputFullBonds(vector<Vector3i> & RbondInfoIJexp, vector<size_t> & Rexp_bondpts, vector<Vector2d>	& Rexp_bondForceNormal, vector<Vector2d> & Rexp_bondForceShear, 
-                          vector<double> & Rexp_bondThisMomentNormal, vector<Vector2d> & Rexp_bondNormals, vector<double> &	Rexp_fSig, vector<double> &	Rexp_fTau, vector<double> &	Rexp_sigrF, vector<double> & Rexp_taurF ) {
+    void outputFullBonds(vector<Vector3i> & RbondInfoIJexp, vector<size_t> & Rexp_bondpts, vector<Vector2d> & Rexp_bondForceNormal, vector<Vector2d> & Rexp_bondForceShear, 
+                          vector<double> & Rexp_bondThisMomentNormal, vector<Vector2d> & Rexp_bondNormals, vector<double> & Rexp_fSig, vector<double> & Rexp_fTau, vector<double> & Rexp_sigrF, vector<double> & Rexp_taurF ) {
         vector<Vector3i> bondInfoIJ; //Temporary per grain to filter active
 
         //Data to get bond info for all grains
         vector<Vector3i>    bondInfoIJexp;
-        vector<size_t>		exp_bondpts;
-    	vector<Vector2d>	exp_bondForceNormal;
-    	vector<Vector2d>	exp_bondForceShear;
-    	vector<double>		exp_bondThisMomentNormal;
-    	vector<Vector2d>	exp_bondNormals;
-    	vector<double>		exp_fSig;
-    	vector<double>		exp_fTau;
-    	vector<double>		exp_sigrF;
-    	vector<double>		exp_taurF;        
+        vector<size_t>    exp_bondpts;
+      vector<Vector2d>  exp_bondForceNormal;
+      vector<Vector2d>  exp_bondForceShear;
+      vector<double>    exp_bondThisMomentNormal;
+      vector<Vector2d>  exp_bondNormals;
+      vector<double>    exp_fSig;
+      vector<double>    exp_fTau;
+      vector<double>    exp_sigrF;
+      vector<double>    exp_taurF;        
 
         for (size_t i = 0; i < _ngrains; i++){
             bondInfoIJ = _grains[i].getBondInfo();
@@ -5936,25 +6068,25 @@ public:
         
         //Save output to send to main
         RbondInfoIJexp        =  bondInfoIJexp;
-        Rexp_bondpts         =	exp_bondpts;
-    	Rexp_bondForceNormal =	exp_bondForceNormal;
-    	Rexp_bondForceShear  =	exp_bondForceShear;
-    	Rexp_bondThisMomentNormal  =		exp_bondThisMomentNormal;
-    	Rexp_bondNormals =	exp_bondNormals;
-    	Rexp_fSig	     =	exp_fSig;
-    	Rexp_fTau	     =	exp_fTau;
-    	Rexp_sigrF	     =	exp_sigrF;
-    	Rexp_taurF	     =	exp_taurF;
+        Rexp_bondpts         =  exp_bondpts;
+      Rexp_bondForceNormal =  exp_bondForceNormal;
+      Rexp_bondForceShear  =  exp_bondForceShear;
+      Rexp_bondThisMomentNormal  =    exp_bondThisMomentNormal;
+      Rexp_bondNormals =  exp_bondNormals;
+      Rexp_fSig      =  exp_fSig;
+      Rexp_fTau      =  exp_fTau;
+      Rexp_sigrF       =  exp_sigrF;
+      Rexp_taurF       =  exp_taurF;
     }
     
     void changeOnlyDEM(bool & new_only_dem) {
-		_only_dem = new_only_dem;
-	}
-	
+    _only_dem = new_only_dem;
+  }
+  
     //Function to create defects or notches in BPM
-	void weakenBonds(double & xWeak, double & yWeak){
-	   size_t ct_break = 0;
-	   vector<Vector3i> bondInfoIJ;
+  void weakenBonds(double & xWeak, double & yWeak){
+     size_t ct_break = 0;
+     vector<Vector3i> bondInfoIJ;
        for (size_t i = 0; i < _ngrains; i++){
             bondInfoIJ = _grains[i].getBondInfo();
             for (size_t j = 0; j < bondInfoIJ.size(); ++j) {
@@ -5963,12 +6095,12 @@ public:
                         //Inspection
                         //cout << "grain: " << i << " bond ptx: " << _grains[i].getPointList()[_grains[i].getbondpts()[j]](0) << " bond pty: " << _grains[i].getPointList()[_grains[i].getbondpts()[j]](1) << " bond Normals x: " << _grains[i].getbondNormals()[j](0) << " bonds Normals y: " << _grains[i].getbondNormals()[j](1) << endl; 
                         if (   (_grains[i].getPointList()[_grains[i].getbondpts()[j]](1) > yWeak &&  _grains[i].getPointList()[_grains[i].getbondpts()[j]](1) < yWeak + _grains[i].getRadius())  &&  (abs(_grains[i].getbondNormals()[j](1)) > 0.0) &&  (_grains[i].getPointList()[_grains[i].getbondpts()[j]](0) < xWeak)   ) {  //Horizontal Left NOTCH   //Use vertically normal bonds, horizontals are: -1.0, 0.0 and within yWeak location and grain size as reference to bound defect to one line
-    					//if (   (_grains[i].getPointList()[_grains[i].getbondpts()[j]](0) > xWeak &&  _grains[i].getPointList()[_grains[i].getbondpts()[j]](0) < xWeak + _grains[i].getRadius())  &&  (abs(_grains[i].getbondNormals()[j](0)) > 0.0) &&  (_grains[i].getPointList()[_grains[i].getbondpts()[j]](1) < yWeak)   ) {  //Vertical Down NOTCH 
-    					//if (   (_grains[i].getPointList()[_grains[i].getbondpts()[j]](0) > xWeak &&  _grains[i].getPointList()[_grains[i].getbondpts()[j]](0) < xWeak + _grains[i].getRadius())  &&  (abs(_grains[i].getbondNormals()[j](0)) > 0.0) &&  (_grains[i].getPointList()[_grains[i].getbondpts()[j]](1) > yWeak)   ) {  //Vertical Up NOTCH 
-    					     cout << "Bond broken due to generation of defect or weakness!!!" << endl;
-    					     cout << "xpos: " << _grains[i].getPointList()[_grains[i].getbondpts()[j]](0) <<  " ypos: " << _grains[i].getPointList()[_grains[i].getbondpts()[j]](1) << endl; 
-    					     _grains[i].deleteInterparticleBondDEM(j);
-    					     ct_break++;
+              //if (   (_grains[i].getPointList()[_grains[i].getbondpts()[j]](0) > xWeak &&  _grains[i].getPointList()[_grains[i].getbondpts()[j]](0) < xWeak + _grains[i].getRadius())  &&  (abs(_grains[i].getbondNormals()[j](0)) > 0.0) &&  (_grains[i].getPointList()[_grains[i].getbondpts()[j]](1) < yWeak)   ) {  //Vertical Down NOTCH 
+              //if (   (_grains[i].getPointList()[_grains[i].getbondpts()[j]](0) > xWeak &&  _grains[i].getPointList()[_grains[i].getbondpts()[j]](0) < xWeak + _grains[i].getRadius())  &&  (abs(_grains[i].getbondNormals()[j](0)) > 0.0) &&  (_grains[i].getPointList()[_grains[i].getbondpts()[j]](1) > yWeak)   ) {  //Vertical Up NOTCH 
+                   cout << "Bond broken due to generation of defect or weakness!!!" << endl;
+                   cout << "xpos: " << _grains[i].getPointList()[_grains[i].getbondpts()[j]](0) <<  " ypos: " << _grains[i].getPointList()[_grains[i].getbondpts()[j]](1) << endl; 
+                   _grains[i].deleteInterparticleBondDEM(j);
+                   ct_break++;
                         }
                     }
                 }
@@ -5976,18 +6108,18 @@ public:
         }
         cout << "Bonds removed due to defect: " << ct_break << endl;
         return;
-	}
-	
-	double bond_logistic(double & tinput){
-	    double th_temp = 0.1;
-	    double coeff_temp = 3.6;
-	    //f(T) = ( (1 - th_temp) / (1+exp(3.6 * T)) ) + th_temp
-	    return ( (1 - th_temp) / (1 + exp(coeff_temp * tinput)) ) + th_temp;
-	}
+  }
+  
+  double bond_logistic(double & tinput){
+      double th_temp = 0.1;
+      double coeff_temp = 3.6;
+      //f(T) = ( (1 - th_temp) / (1+exp(3.6 * T)) ) + th_temp
+      return ( (1 - th_temp) / (1 + exp(coeff_temp * tinput)) ) + th_temp;
+  }
 
-	double bond_qvODE(double & origrF, double & tinput, const size_t & dstep, double & qvert, double & Qatm, double & Aatm, double & Batm){
+  double bond_qvODE(double & origrF, double & tinput, const size_t & dstep, double & qvert, double & Qatm, double & Aatm, double & Batm){
         double newrF;
-        double th_temp = 0.00; //Minimum weakness value 
+        double th_temp = 0.00001; //Minimum weakness value 
         
         //Material values
         double meltTemp= -1.8; //0 for LS, -1.8 degree Celsius for normal implementations //Melting point of Ice (confirm for salinity)
@@ -6002,18 +6134,37 @@ public:
         //Thickness ODE used to weaken bonds
         newrF =      max(  (origrF + dstep*(meltV)*(meltTemp - tinput) + dstep * meltVSun) ,  th_temp);
         //New thick     //Old thick    //qvert comp.  * (Tmelt-T_fave)        //Denom                      //Q, A, BT part
-    	newrF =      min(origrF, newrF); //Avoid healing    
-	   
-	    return newrF;
-	}
-	
-	//Include logistic bond weakening based on temperature
-	void updateBondTemp(const size_t & dstep, double & qvert, double & Qatm, double & Aatm, double & Batm){ 
+      newrF =      min(origrF, newrF); //Avoid healing    
+     
+      return newrF;
+  }
+  
+  //Include logistic bond weakening based on temperature
+  void updateBondTemp(const size_t & dstep, double & qvert, double & Qatm, double & Aatm, double & Batm, double & og_mass){ 
         bool irr_damage = true; //Apply irreversible damage
-	    vector<Vector3i> bondInfoIJ;
-	    double temp_bond, bond_redux, prevsigrF, prevtaurF;
+      vector<Vector3i> bondInfoIJ;
+      double temp_bond, bond_redux, prevsigrF, prevtaurF, temp_G;
+      bool grain_thick = true; //Turn on to also reduce grain thickness and change their mass
+      double new_thick, old_thick, mult_loss, old_mass;
+      Vector2d posG;
+      
         for (size_t i = 0; i < _ngrains; i++){
             bondInfoIJ = _grains[i].getBondInfo();
+            
+            if (grain_thick){
+                old_thick = _grains[i].getThickness();
+                posG(0) = _grains[i].getPosition()(0);
+                posG(1) = _grains[i].getPosition()(1);
+                temp_G = round_Ocean(posG, _oceanTemp, _x_cells, _y_cells, _offset);
+                if (temp_G > -1.8){
+                    new_thick = bond_qvODE(old_thick, temp_G, dstep, qvert, Qatm, Aatm, Batm);
+                    _grains[i].changeThickness(new_thick);
+                    mult_loss = new_thick/_grains[i].getThickness0();
+                    _grains[i].changeMass(og_mass*mult_loss);
+                }
+                
+            }
+            
             for (size_t j = 0; j < bondInfoIJ.size(); ++j) {
                 if (bondInfoIJ[j](0) == 1) {
                     if (size_t(bondInfoIJ[j](2)) < (_ngrains+1)) {
@@ -6052,29 +6203,877 @@ public:
                                 _grains[i].changetaurF(j, new_taurF);
                             }
                         }
-	                }
+                  }
                 }
             }
         }
-	}
-	
-	
+  }
+  
+  
+  
+  
+  
+  
+  //BEGIN DAMPING FUNCTIONS
+  //Clustering functions
+  
+  //Exist for a particular cluster
+  bool exists_list(vector<size_t> & listV, size_t & elementV){
+        for (size_t i = 0; i < listV.size(); ++i) {
+            if (elementV == listV[i]){
+                return true;
+            }
+        }
+        return false;
+  }
+  
+  //Exist in all clusters or segments
+  bool exists_seg(vector<vector<size_t>> & segment, size_t & elementV){
+        for (size_t i = 0; i < segment.size(); ++i) {
+            if ( exists_list(segment[i],elementV) ){
+                return true;
+            }
+        }
+        return false;
+  }
+
+    //No need
+    // size_t exists_seg_index(vector<vector<size_t>> & segment, size_t & elementV){
+    //     for (size_t i = 0; i < segment.size(); ++i) {
+    //         if ( exists_list(segment[i],elementV) ){
+    //             return i;
+    //         }
+    //     }
+    //     return 10000000000; //If badly used we'll get an error
+    // }
+    
+    //Fixed floe detection functions from floe list
+  vector<size_t> fixed_detect(vector<size_t> & floeList, vector<size_t> & fixed_floes){
+      size_t idx;
+      size_t lenList = floeList.size();
+      bool fixg; //Assume not fixed
+      vector<size_t> fixedList(lenList);
+      for (size_t i = 0; i < lenList; ++i) {
+          fixg = false; //Assume not fixed everytime and then try to prove wrong.
+          idx = floeList[i];
+          for (size_t j = 0; j < fixed_floes.size(); ++j) {
+              if (idx == fixed_floes[j]){
+                  fixg = true;
+                  break;
+              }
+          }
+         //Define fix cluster list per floe in list
+          if(fixg){
+              fixedList[i] = 1;
+          }
+          else{
+              fixedList[i] = 0;
+          }
+      }
+      return fixedList;
+  }
+  
+  //Distance and fixed floe detection functions (using cluster fixed list)
+  bool fixed_find(vector<size_t> & floeList, vector<size_t> & fixedList, size_t & edge_index){
+      size_t idx;
+      for (size_t i = 0; i < floeList.size(); ++i) {
+          idx = floeList[i];
+          if(idx == edge_index && fixedList[i] == 1){
+              return true;
+          }
+      }
+      return false;
+  }
+  
+  bool cluster_intersects(vector<size_t> & floeList, Vector2d & PointFind){
+      size_t idx;
+      for (size_t i = 0; i < floeList.size(); ++i) {
+          idx = floeList[i];
+            if ( (_grains[idx].getPosition() - PointFind).norm() <= _grains[idx].getRadius() ){
+                return true;
+            }
+      }
+      return false;
+  }
+  
+  size_t min_distFx(vector<size_t> & floeList, Vector2d & PointFind){
+      double minD = 100000000000.000000;
+      size_t idx, edge_index;
+      for (size_t i = 0; i < floeList.size(); ++i) {
+          idx = floeList[i];
+            if ( (_grains[idx].getPosition() - PointFind).norm() < minD ){
+                minD = (_grains[idx].getPosition() - PointFind).norm();
+                edge_index = idx;
+            }
+      }
+      return edge_index;
+  }
+  
+  
+  double max_distFx(vector<size_t> & floeList){
+      double maxD = 0.000000;
+      size_t idx, jdx;
+      for (size_t i = 0; i < floeList.size(); ++i) {
+          idx = floeList[i];
+          for (size_t j = i+1; j < floeList.size(); ++j) {
+              jdx = floeList[j];
+              if ( (_grains[idx].getPosition() - _grains[jdx].getPosition()).norm() > maxD ){
+                  maxD = (_grains[idx].getPosition() - _grains[jdx].getPosition()).norm();  
+              }
+          }
+      }
+      return maxD;
+  }
+
+  //Sum of included bonds to keep looping list  
+  size_t sum_included(vector<size_t> & bond_included){
+      size_t sumV = 0;
+      for (size_t i = 0; i < bond_included.size(); i++){
+          sumV += bond_included[i];
+      }
+      return sumV;
+  }
+  
+  //Average of a vector (self)
+  double average_vector(vector<double> & vecV){
+      size_t sizeV = vecV.size();
+      double sumV = 0.0;
+      if (sizeV == 0){
+          return 0.0;
+      }
+      for (size_t i = 0; i < sizeV; i++){
+          sumV += vecV[i];
+      }
+      return sumV/double(sizeV);
+  }
+  
+  vector<size_t> exhaust_options(vector<Vector3i> & bondV, size_t & rootg, vector<size_t> & bond_included){
+    vector<double> ready_list; //List to track linked grains covered
+    ready_list.push_back(0.0);
+    vector<size_t> temp_seg; //Temporary segment of full floe
+    temp_seg.push_back(rootg);
+    size_t idg  = 0; //Placeholder of grain to inspect
+    size_t floeL; //For follower
+    size_t floeF; //For leader
+    while (average_vector(ready_list) < 1){
+        for (size_t i = 0; i < bondV.size(); i++){
+            if (bond_included[i] == 0){ 
+                floeL = size_t(bondV[i](1));
+                floeF = size_t(bondV[i](2));
+                if (  (temp_seg[idg] == floeL) || (temp_seg[idg] == floeF)  ){   //Avoid repeats
+                    bond_included[i] = 1;
+                    if (temp_seg[idg] == floeL){
+                        if (exists_list(temp_seg, floeF) == false){
+                            temp_seg.push_back(floeF);
+                            ready_list.push_back(0.0);
+                        }
+                    }
+                    else{
+                        if (exists_list(temp_seg, floeL) == false){
+                            temp_seg.push_back(floeL);
+                            ready_list.push_back(0.0);
+                        }
+                    }
+                }
+            }
+        }
+        ready_list[idg] = 1;
+        idg += 1;
+    }
+    return temp_seg;
+  }
+
+  //Clustering of Floes depending on Bond Connectivity (Critical Function)
+  bool bond_clustering(vector<vector<size_t>> & clusterFloes, vector<vector<size_t>> & clusterFixed, vector<size_t> & fixed_floes){
+      vector<vector<size_t>> segments;
+      vector<vector<size_t>> fixed_segments;
+      vector<size_t> temp_segment;
+      vector<size_t> temp_fixed;
+      
+      //Generate Bond Connectivity list using grain Bond Data
+      //Data to get bond info for all grains
+        vector<Vector3i>    bondInfoIJ;  //Place holder to go all over
+        vector<Vector3i>    bondV;       //List of all 0: on/off 1: leader index 2: follower index Bond Connectivity Data
+        size_t floeL; //For follower
+        size_t floeF; //For leader
+         
+        for (size_t i = 0; i < _ngrains; i++){
+            bondInfoIJ = _grains[i].getBondInfo();
+            for (size_t j = 0; j < bondInfoIJ.size(); ++j) {
+                if (bondInfoIJ[j](0) == 1) { //Only save active bonds
+                    if (size_t(bondInfoIJ[j](2)) < (_ngrains+1)) { //Additional restriction, please check
+                        bondV.push_back(bondInfoIJ[j]);
+                    }    
+                }
+            }
+        }
+        //Bond included to speed up process
+        vector<size_t> bond_included(bondV.size()); //
+        for (size_t i = 0; i < bondV.size(); i++){
+            bond_included[i] = 0; //Initialized all zeros or not included. 1 means already included in cluster and must be skipped.
+        }
+        
+        size_t counter_seek = 0; //In case you need iterations for large ensembles.
+        size_t max_iters = 22; //To achieve full connectivity this methods needs a lot of iterations for larger floes. Works for a 8000 floe, 25K bond scale. Less values work for smaller floes. Check damping map.  //17-->
+        size_t min_size = 4; //Minimum cluster size to even consider for damping
+        
+        if (bondV.size() > 0){  //Else do nothing
+            while( sum_included(bond_included) < bondV.size() ){ //Only leave if all bonds are added to clusters
+                for (size_t i = 0; i < bondV.size(); i++){   //Loop over all bonds to cluster
+                    if (bond_included[i] == 0){  //Only analyze if the bonds is not added to the cluster already
+                        floeL = size_t(bondV[i](1));
+                        floeF = size_t(bondV[i](2));
+                        if (temp_segment.size() == 0){ //First consider empty temp_segment or new segment
+                            if ( exists_seg(segments, floeL) == false && exists_seg(segments, floeF) == false ){  //None present in other parts of all the clusters, hence add to list
+                                bond_included[i] = 1;
+                                temp_segment.push_back(floeL);
+                                temp_segment.push_back(floeF);
+                            }
+                            else{  //Repeated or disconnect bonds, just mark as done. Since a b already belong to the prior cluster. why would a or b be repeated in another?
+                                bond_included[i] = 1;
+                            }
+                        }
+                        else{  //Now for a non-empty new temp_segment things need to be checked as well
+                            //if ( ( exists_list(temp_segment, floeL) || exists_list(temp_segment, floeF) ) && ( ( exists_list(temp_segment, floeL) && exists_list(temp_segment, floeF) ) == false) ){ //At least one has to exist on the temp_Segment list for connection and not both at the same time to avoid repeats
+                            if ( exists_list(temp_segment, floeL) || exists_list(temp_segment, floeF)  ){
+                                bond_included[i] = 1;
+                                if ( exists_list(temp_segment, floeL) == false and exists_seg(segments, floeL) == false){ //Only add if new to segment cluster and to current temp_segment
+                                    temp_segment.push_back(floeL);
+                                } 
+                                if ( exists_list(temp_segment, floeF) == false and exists_seg(segments, floeF) == false){ //Only add if new to segment cluster and to current temp_segment
+                                    temp_segment.push_back(floeF);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                counter_seek += 1;
+                if (counter_seek > max_iters){
+                    if (temp_segment.size() >= min_size){
+                        segments.push_back(temp_segment);
+                        temp_fixed = fixed_detect(temp_segment, fixed_floes); //Make the same for fixed floe cluster list for convenience
+                        fixed_segments.push_back(temp_fixed);
+                    }
+                    temp_segment.clear(); //Clear to start again
+                    temp_fixed.clear();
+                    counter_seek = 0; //Restart
+                }
+            }
+        }
+      else{
+          return false;
+      }
+      
+      //What  if too broken down and really no big segments formed
+      if (segments.size() == 0){
+          return false;
+      }
+      
+      clusterFloes = segments;
+      clusterFixed = fixed_segments;
+      return true;
+  }
+  
+  //Clustering of Floes depending on Bond Connectivity (Critical Function) (newer function)
+  bool bond_clustering_v2(vector<vector<size_t>> & clusterFloes, vector<vector<size_t>> & clusterFixed, vector<size_t> & fixed_floes){
+      vector<vector<size_t>> segments;
+      vector<vector<size_t>> fixed_segments;
+      vector<size_t> temp_segment;
+      vector<size_t> temp_fixed;
+      
+      //Generate Bond Connectivity list using grain Bond Data
+      //Data to get bond info for all grains
+        vector<Vector3i>    bondInfoIJ;  //Place holder to go all over
+        vector<Vector3i>    bondV;       //List of all 0: on/off 1: leader index 2: follower index Bond Connectivity Data
+        size_t floeL; //For follower
+        size_t floeF; //For leader
+        size_t min_size = 4; //Minimum cluster size to even consider for damping
+         
+        for (size_t i = 0; i < _ngrains; i++){
+            bondInfoIJ = _grains[i].getBondInfo();
+            for (size_t j = 0; j < bondInfoIJ.size(); ++j) {
+                if (bondInfoIJ[j](0) == 1) { //Only save active bonds
+                    if (size_t(bondInfoIJ[j](2)) < (_ngrains+1)) { //Additional restriction, please check
+                        bondV.push_back(bondInfoIJ[j]);
+                    }    
+                }
+            }
+        }
+        //Bond included to speed up process
+        vector<size_t> bond_included(bondV.size()); //
+        for (size_t i = 0; i < bondV.size(); i++){
+            bond_included[i] = 0; //Initialized all zeros or not included. 1 means already included in cluster and must be skipped.
+        }
+        
+        if (bondV.size() > 0){  //Else do nothing
+            while( sum_included(bond_included) < bondV.size() ){ //Only leave if all bonds are added to clusters
+                for (size_t i = 0; i < bondV.size(); i++){   //Loop over all bonds to cluster
+                    if (bond_included[i] == 0){  //Only analyze if the bonds is not added to the cluster already
+                        floeL = size_t(bondV[i](1));
+                        floeF = size_t(bondV[i](2));
+                        
+                        if ( exists_seg(segments, floeL) == false && exists_seg(segments, floeF) == false ){ 
+                            temp_segment = exhaust_options(bondV, floeL, bond_included);
+                            if (temp_segment.size() >= min_size){
+                                segments.push_back(temp_segment);
+                                temp_fixed = fixed_detect(temp_segment, fixed_floes); //Make the same for fixed floe cluster list for convenience
+                                fixed_segments.push_back(temp_fixed);
+                            }
+                            temp_segment.clear(); //Clear to start again
+                            temp_fixed.clear();
+                        }
+                        else{
+                            cout << "HUH!!!! No more???: Clustering error!!!!" << endl;
+                            exit(1);
+                        }
+                            
+                   }
+               }
+            }
+      }
+      else{
+          return false;
+      }
+      
+      //What  if too broken down and really no big segments formed
+      if (segments.size() == 0){
+          return false;
+      }
+      
+      clusterFloes = segments;
+      clusterFixed = fixed_segments;
+      return true;
+  }
+  
+  //Needed for Under Ice Detection and Distance From Edge (Critical Function)
+  void clusterStats(vector<vector<size_t>> & clusterFloes, vector<Vector2d> & clusterCentroidOut, vector<double> & clusterBradiusOut){
+      size_t nClusters = clusterFloes.size();
+      size_t lenList;
+      vector<Vector2d> clusterCentroid(nClusters); //Vector of cluster centroids
+      vector<double> clusterBradius(nClusters);     //Vector of cluster bounding circles
+      size_t jdx;
+      
+      double avex, avey, max_dist;
+      for (size_t i = 0; i < nClusters; ++i) {
+          lenList = clusterFloes[i].size();
+          avex = 0;
+          avey = 0;
+          //Get average values over all positions to get centroid in x and y. 
+          for (size_t j = 0; j < lenList; ++j) {
+              jdx = clusterFloes[i][j];
+              avex += _grains[jdx].getPosition()(0);
+              avey += _grains[jdx].getPosition()(1);
+          }
+          if (lenList > 0){
+              clusterCentroid[i](0) = avex/lenList;
+              clusterCentroid[i](1) = avey/lenList;
+          }
+          else{
+              clusterCentroid[i](0) = 0.000;
+              clusterCentroid[i](1) = 0.000;
+          }
+          //Get max distance among all floes of cluster
+          max_dist = max_distFx(clusterFloes[i]);
+          clusterBradius[i] = 0.575*max_dist; //0.7 is a bit better than 0.5 to avoid being too close to edge just in case, 0.575 is to be faster
+      }
+      clusterCentroidOut = clusterCentroid;
+      clusterBradiusOut = clusterBradius;
+  }
+      
+  //Distance of Grid Point from Ice Edge No fixed floes (Critical Function)
+    void under_iceDEM_bond(double & dist_find, Vector2d & ptGrid, vector<vector<size_t>> & clusterFloes, vector<Vector2d> & clusterCentroid, vector<double> & clusterBradius){   
+      size_t nClusters = clusterFloes.size();
+      
+      bool close_ice =  false; //Assume none, prove proximity as true
+      for (size_t i = 0; i < nClusters; ++i) {
+          if ( (ptGrid - clusterCentroid[i]).norm() < clusterBradius[i] ){
+              close_ice = true;
+              break;
+          }
+      }
+        
+        dist_find = 0.0; //For reference
+        size_t edge_index;     
+      double d_grid, d_edge, d_p, cosG, sinG, Rc; //Distance between grid_Point-to-centroid, edge_point-to-centroid, grid_Point-to-edge_point, cos and sine angle for d_grid respect to horizontal
+      Vector2d cPoint; //Point in projected circle
+      Vector2d edgePoint;
+      if (close_ice){
+          for (size_t i = 0; i < nClusters; ++i) {
+              if ( (ptGrid - clusterCentroid[i]).norm() < clusterBradius[i] ){
+                  //We are within action circle so we need to get all critical distances
+                  d_grid = (ptGrid - clusterCentroid[i]).norm();
+                  cosG = (ptGrid(0) - clusterCentroid[i](0)) / d_grid;
+                  sinG = (ptGrid(1) - clusterCentroid[i](1)) / d_grid;
+                  cPoint(0) = clusterCentroid[i](0) + clusterBradius[i] * cosG;
+                  cPoint(1) = clusterCentroid[i](1) + clusterBradius[i] * sinG;
+                  edge_index = min_distFx(clusterFloes[i], cPoint);
+                  Rc = _grains[edge_index].getRadius();
+                  edgePoint(0) = _grains[edge_index].getPosition()(0);
+                  edgePoint(1) = _grains[edge_index].getPosition()(1);
+                  d_edge = (edgePoint - clusterCentroid[i]).norm();
+                  d_p = (ptGrid - edgePoint).norm();
+                  if (d_grid > d_edge + Rc){
+                     dist_find = 0.0;
+                  }
+                  else if (d_grid > d_edge && d_grid < d_edge + Rc){
+                     dist_find = max(d_edge + Rc - d_grid, dist_find); 
+                  }
+                  else{
+                     dist_find = max(d_p + Rc, dist_find); 
+                  }
+              }
+          }
+      }
+      else{
+          dist_find = 0.0;
+      }
+      
+  } 
+  
+  //Distance of Grid Point from Ice Edge with fixed floes (Critical Function)
+  void under_iceDEM_bond_fixed(double & dist_find, Vector2d & ptGrid, vector<vector<size_t>> & clusterFloes, vector<vector<size_t>> & clusterFixed, vector<Vector2d> & clusterCentroid, vector<double> & clusterBradius){   
+      size_t nClusters = clusterFloes.size();
+      size_t intersec_index;
+      
+      bool close_ice =  false; //Assume none, prove proximity as true
+      for (size_t i = 0; i < nClusters; ++i) {
+          if  ( cluster_intersects(clusterFloes[i], ptGrid) ){  //All floes but first intersect at small floe level
+          //if ( (ptGrid - clusterCentroid[i]).norm() < clusterBradius[i] ){ //All floes based on Bradius
+              close_ice = true;
+              intersec_index = i;
+              break;
+          }
+      }
+      
+      bool printC = false;
+      if ( (ptGrid(0) == 100.0 && ptGrid(1) == 230.0) || (ptGrid(0) == 300.0 && ptGrid(1) == 230.0) || (ptGrid(0) == 200.0 && ptGrid(1) == 50.0) ){
+          cout <<"Print samples" << endl;
+          printC = false;
+      }
+        
+      double start_angle, angle_val;
+      double dist_min_fixed;
+      bool fixed_floe_q;
+      dist_find = 0.0; //For reference
+      size_t edge_index, edge_indexT;    
+      double d_grid, d_edge, d_p, cosG, sinG, Rc; //Distance between grid_Point-to-centroid, edge_point-to-centroid, grid_Point-to-edge_point, cos and sine angle for d_grid respect to horizontal
+      Vector2d cPoint; //Point in projected circle
+      Vector2d edgePoint;
+      if (close_ice){
+          //for (size_t i = 0; i < nClusters; ++i) {
+              //if ( (ptGrid - clusterCentroid[i]).norm() < clusterBradius[i] ){
+                  //We are within action circle so we need to get all critical distances
+                  d_grid = (ptGrid - clusterCentroid[intersec_index]).norm();
+                  cosG = (ptGrid(0) - clusterCentroid[intersec_index](0)) / d_grid;
+                  sinG = (ptGrid(1) - clusterCentroid[intersec_index](1)) / d_grid;
+                  cPoint(0) = clusterCentroid[intersec_index](0) + clusterBradius[intersec_index] * cosG;
+                  cPoint(1) = clusterCentroid[intersec_index](1) + clusterBradius[intersec_index] * sinG;
+                  //edge_index = min_distFx(clusterFloes[i], cPoint);
+                  //fixed_floe_q = fixed_find(clusterFloes[i], clusterFixed[i], edge_index); //Assume fixed and then improve
+                  fixed_floe_q = true;
+                  //Hard way (Assume bottom fixed) (Modify when needed)
+                  dist_min_fixed = 10000000000000;
+                  if (fixed_floe_q){
+                      //Fix rotational constant for bottom fix (sweep from 180 to 360 degrees)  //Overkill would be 0 ot 360. (More expensive)
+                      start_angle = 0;  //360
+                      for (size_t adx = 0; adx < 721; ++adx) {  //Inspect for 180 degrees   //for (size_t adx = 0; adx < 361; ++adx) { 
+                          angle_val = start_angle + 0.5*double(adx); //In degrees
+                          angle_val *= M_PI/180; //Change to radians
+                          cPoint(0) = clusterCentroid[intersec_index](0) + clusterBradius[intersec_index] * cos(angle_val); //New iterative projected point
+                          cPoint(1) = clusterCentroid[intersec_index](1) + clusterBradius[intersec_index] * sin(angle_val);
+                          edge_indexT = min_distFx(clusterFloes[intersec_index], cPoint);
+                          fixed_floe_q = fixed_find(clusterFloes[intersec_index], clusterFixed[intersec_index], edge_indexT);
+                          if (fixed_floe_q == false && (ptGrid - _grains[edge_indexT].getPosition()).norm() < dist_min_fixed){
+                              dist_min_fixed = (ptGrid - _grains[edge_indexT].getPosition()).norm();
+                              edge_index = edge_indexT;
+                          }
+                      }
+                  }
+                  //Easy way
+                  Rc = _grains[edge_index].getRadius();
+                  edgePoint(0) = _grains[edge_index].getPosition()(0);
+                  edgePoint(1) = _grains[edge_index].getPosition()(1);
+                  d_edge = (edgePoint - clusterCentroid[intersec_index]).norm();
+                  d_p = (ptGrid - edgePoint).norm();
+                  if (d_grid > d_edge + Rc){
+                     dist_find = 0.0;
+                  }
+                  else if (d_grid > d_edge && d_grid < d_edge + Rc){
+                     dist_find = max(d_edge + Rc - d_grid, dist_find); 
+                  }
+                  else{
+                     dist_find = max(d_p + Rc, dist_find); 
+                  }
+                  
+                  if (printC){
+                      cout << "dist_find: " << dist_find << endl;
+                      cout << "dist_min_fixed: " << dist_min_fixed << endl;
+                      cout << "Bradius: " << clusterBradius[intersec_index] << endl;
+                      cout << "ptGrid: " << ptGrid(0) << " , " << ptGrid(1) <<endl;
+                      cout << "Centroid: " << clusterCentroid[intersec_index](0) << " , " << clusterCentroid[intersec_index](1) <<endl;
+                      cout << "cPoint: " << cPoint(0) << " , " << cPoint(1) <<endl;
+                      cout << "edgePoint: " << edgePoint(0) << " , " << edgePoint(1) <<endl;
+                      cout << "d_grid: " << d_grid << endl;
+                      cout << "d_edge: " << d_edge << endl;
+                      cout << "d_p: " << d_p << endl;
+                      cout << "Rc: " << Rc << endl;
+                      cout << "Angles: " << cosG << " , " << sinG <<endl;
+                  }
+              //}
+          //}
+      }
+      else{
+          dist_find = 0.0;
+      }
+      
+  } 
+  
+  //YFRONT functions
+  double vec_ave_y(vector<size_t> & clusterV){
+      size_t idx;
+      double avesum = 0;
+      for (size_t i = 0; i < clusterV.size(); ++i) {
+          idx = clusterV[i];
+          avesum += _grains[idx].getPosition()(1);
+      }
+      if (clusterV.size() < 1) {
+          return 0;
+      }
+      else{
+          return avesum / clusterV.size();
+      }
+  }
+  
+  double maxY_and_cut(vector<size_t> & clusterV){
+      double maxY = 0.00;
+      double posY;
+      size_t idx, max_ind;
+      for (size_t i = 0; i < clusterV.size(); ++i) {
+          idx = clusterV[i];
+          posY = _grains[idx].getPosition()(1);
+          if (posY > maxY){
+              maxY = posY;
+              max_ind = i;
+          }
+      }
+      clusterV.erase(clusterV.begin()+max_ind);
+      return maxY;
+  }
+  
+  double maxY_and_buffer(vector<size_t> & clusterV){
+      double maxY = 0.00;
+      double posY;
+      double buffer_dist = 30.00; //Orig 30.00
+      size_t idx;
+      for (size_t i = 0; i < clusterV.size(); ++i) {
+          idx = clusterV[i];
+          posY = _grains[idx].getPosition()(1);
+          if (posY > maxY){
+              maxY = posY;
+          }
+      }
+      return maxY - buffer_dist;
+  }
+  
+  double maxY_ave(vector<size_t> & clusterV, size_t & nave){
+      double aveY = 0.00;
+      vector<size_t> clusterVcopy; //To avoid problems
+      clusterVcopy = clusterV;
+      bool buffer_use = true; //Else is average of max points
+      //Just do the average if too few points
+      if ( nave >= clusterVcopy.size() ){
+          return vec_ave_y(clusterVcopy); //Defines average y position of cluster
+      }
+      //Filter for real top nave or top - buffer
+      else{
+          if (buffer_use){
+              aveY = maxY_and_buffer(clusterVcopy);  //Defines max y position of cluster minus a small buffer
+              return aveY;
+          }
+          else{
+              for (size_t i = 0; i < nave; ++i) {
+                  aveY += maxY_and_cut(clusterVcopy); //Find max Y value and also cut vector to find next best and so on.
+              }
+              return aveY/nave;
+          }
+      }
+  }
+  
+  double maxY_ave_fix(vector<size_t> & clusterV, size_t & nave){
+      double aveY = 0.00;
+      vector<size_t> clusterVcopy; //To avoid problems
+      clusterVcopy = clusterV;
+      bool buffer_use = true; //Else is average of max points
+      //Return zero if no fixed floes
+      if (clusterV.size()<1){
+          return 0.0;
+      }
+      
+      //Just do the average if too few points
+      if ( nave >= clusterVcopy.size() ){      
+          return vec_ave_y(clusterVcopy);       //Defines average y position of cluster
+      }
+      //Filter for real top nave or top - buffer
+      else{
+          if (buffer_use){
+              //aveY = maxY_and_buffer(clusterVcopy);  //Defines max y position of fixed cluster minus a small buffer
+              aveY = vec_ave_y(clusterVcopy) + 20.00;  //Defines mean y position of fixed cluster plus a small buffer
+              return aveY;
+          }
+          else{
+              for (size_t i = 0; i < nave; ++i) {
+                  aveY += maxY_and_cut(clusterVcopy); //Find max Y value and also cut vector to find next best and so on.
+              }
+              return aveY/nave;
+          }
+      }
+  }
+  
+  bool have_fixed(vector<size_t> & vFixed){
+      bool fixed_exists = false;
+      for (size_t i = 0; i < vFixed.size(); ++i) {
+          if (vFixed[i] == 1){
+              fixed_exists = true;
+              break;
+          }
+      }
+      return fixed_exists;
+  }
+  
+  double find_yfront(vector<vector<size_t>> & clusterFloes, vector<vector<size_t>> & clusterFixed){ 
+      
+      double y_front;
+      double y_front_all = 300.00; //Let's say that the y front is the maximum point of the floe with fixed floes, based on how it fails, only bottom floe will have fixed floes. (Example value)
+      y_front_all = 100.00; //Assume is close to original ice geometry
+      double y_limit = 11.00 + 40.00; //Cannot go below this to simulate cantilever //54.00 good for Fram Up, 12 for lower fram rec
+      size_t nave = 0;  //20
+      size_t naveF = 0; //1
+      double y_front_fix = 10.00 +  40.00;
+      double y_limit_max = 90.00 + 150.00; //Damp cannot go higher than that
+      //Remove damping for now:
+      //y_front = 0.0;
+      //return y_front;
+    
+      //RETURN AGAIN TO THIS      
+      size_t nClusters = clusterFloes.size();
+      size_t nClustersF = clusterFixed.size();
+      
+    //   //For moving floes //Not applies for damp since they are loose.
+    //   for (size_t i = 0; i < nClusters; ++i) {
+    //           y_front_all = maxY_ave(clusterFloes[i], nave); //Average of top X floes (say 20 since it will not be reduced that much)
+    //   }
+      size_t idx_max = 0;
+      size_t nfloe_w_fix = 0;
+      double clusterymax = 0.0;
+      //For fixed floes
+      for (size_t i = 0; i < nClusters; ++i) {
+          if ( have_fixed(clusterFixed[i]) ){ //Now assume more than 1 clusters are fixed. Use max value of fixed but no more than initial ref value //Assume only 1 cluster is fixed, rest aren't
+              //Max value of only fixed floes, keep accumulating the max value of fixed floe clusters
+              clusterymax = maxY_ave_fix(clusterFloes[i], naveF);
+              if ( clusterymax >  y_front_fix  ){
+                  y_front_fix =  clusterymax;
+                  idx_max = i;
+              }
+              nfloe_w_fix++;
+          }
+      }
+      
+      //Use the smallest of the two options (fix limit should win)
+      //y_front = min(y_front_all, y_front_fix);
+      y_front = min(y_limit_max, y_front_fix);
+      cout << "Y_front found from clusters: " << y_front_fix << endl;
+      cout << "Y_front found before limit y = 11: " << y_front << endl;
+      cout << "Y_front index found: " << idx_max << endl;
+      cout << "Number of floes with fixed: " << nfloe_w_fix << endl;
+      //RE-DO this part
+      //   for (size_t i = 0; i < nClusters; ++i) {
+      //       if ( have_fixed(clusterFixed[i]) ){ //Assume only 1 cluster is fixed, rest aren't
+      //           y_front_all = maxY_ave(clusterFloes[i], nave); //Average of top X floes (say 20 since it will not be reduced that much)
+      //           //y_front_fix = maxY_ave_fix(clusterFixed[i], naveF); //Average of only fixed floes
+      //           y_front = min(y_front_all, y_front_fix);
+      //           break;
+      //       }
+      //   }
+      return max(y_front, y_limit);
+  }  
+
+  //Distance of Grid Point from a y front Ice Edge in 1D
+  double under_iceDEM_bond_fixed_yfront(Vector2d & ptGrid, double & y_front){   
+      double dist_find;
+      bool below_front = false;
+      
+      if (ptGrid(1) <= y_front){
+          below_front = true;
+      }
+     
+      if (below_front){
+          dist_find = y_front - ptGrid(1);
+      }
+      else{
+          dist_find = 0.0;
+      }
+      return dist_find;
+  } 
+  
+  //Non Fixed Floe Version and Fixed version together (WARNING DOES NOT YET ACCOUNT FOR PBC!!!!!!!). If fixed_floes is empty we always we 0 for fixedCluster so it's okay.
+  double updateDamp(vector<size_t> & fixed_floes){
+      double Ds =  2.5; //Limit for damping //2.5 //20
+      vector<double> newdampMat(_x_cells * _y_cells);
+      vector<double> dist_edge(_x_cells * _y_cells); //Distance used to find damping matrix
+      
+      //1. Do floe segmentation function
+      //INPUT ALL FLOE BONDS FROM ALL GRAINS
+      //OUTPUT: Vector of floe bond indices and Vector of grain indices joined into distinct floes, at least 1 per simulation, unless all is broken
+      //IDENTIFY BEST DATA STRUCTURE FOR BONDS AND FLOES (CREATE!!!) //Also best outputs like centroids and x-y dists
+      vector<vector<size_t>> clusterFloes; 
+      vector<vector<size_t>> clusterFixed; 
+      //Add special one for fixed floes in the other function
+      //bond_clustering function that goes over all bonds and functions (CREATE!!!)
+      bool bond_exist = bond_clustering_v2(clusterFloes, clusterFixed, fixed_floes);  //bond_clustering_fixed(clusterFloes, clusterFixed, fixed_floes);
+      cout << "Number of clusters: " << clusterFloes.size() << endl; 
+      //Accelerate things if no bonds exist
+      if (bond_exist == false){
+          for (size_t i = 0; i < _y_cells; i++) {
+                for (size_t j = 0; j < _x_cells; j++) {
+                    newdampMat[j+i*_x_cells] = 1.0; //By defect it will be 1 if D = 0 or no floes are bonded to damp
+                }
+            }
+            _dampMat = newdampMat;
+            return 0.0;
+      }
+      
+      //Get useful stats for distance
+      vector<Vector2d> clusterCentroid; //Vector of cluster centroids
+      vector<double> clusterBradius;     //Vector of cluster bounding circles
+      clusterStats(clusterFloes, clusterCentroid, clusterBradius); //Get stats for distance
+      
+      bool simple_y = true; 
+      double y_front = 0.0; //YFRONT
+      if (simple_y){
+        cout << "Use simple y damp front!!!" << endl;
+        y_front = find_yfront(clusterFloes, clusterFixed); //YFRONT
+        cout << "y damp front: " << y_front << endl;
+      }
+     
+      //2. Update dist_edge based on NO or contact with ice
+      //INPUT dist_edge empty
+      //OUTPUT dist_edge with zero values, which will be skipped, only work on negative values position relative to edges.
+      Vector2d ptGrid;
+      double dist_find = 0.0;
+      double dist_Change;
+      for (size_t i = 0; i < _y_cells; i++) {
+            for (size_t j = 0; j < _x_cells; j++) {
+                ptGrid = _fluid_coord[j+i*_x_cells];
+                // under_iceDEM_bond function (CREATE!!!)
+                //under_iceDEM_bond(dist_find, ptGrid, clusterFloes, clusterCentroid, clusterBradius);  //Assume no contact with ice by default, then disprove. (NO FIXED floes) (Left for reference)
+                if (simple_y == false){
+                    under_iceDEM_bond_fixed(dist_find, ptGrid, clusterFloes, clusterFixed, clusterCentroid, clusterBradius); //FOR fixed floes //radial in 2D
+                }
+                else{
+                    dist_find = under_iceDEM_bond_fixed_yfront(ptGrid, y_front); //FOR fixed floes //linear in y direction, damping underneath front //YFRONT
+                }
+                dist_Change = dist_find;
+                dist_edge[j+i*_x_cells] = dist_Change; 
+            }
+      }
+      
+      //Resmooth to avoid holes
+      for (size_t i = 0; i < _y_cells; i++) {
+          for (size_t j = 0; j < _x_cells; j++) {
+              if (  (i > 0 && i <_y_cells-1) && (j > 0 && i <_x_cells-1)  ){
+                  if (dist_edge[j+i*_x_cells] == 0 && dist_edge[j+(i+1)*_x_cells] > 0 && dist_edge[j+(i-1)*_x_cells] > 0 && dist_edge[(j+1)+i*_x_cells] > 0 && dist_edge[(j-1)+i*_x_cells] > 0 ){
+                      dist_edge[j+i*_x_cells] = 0.25 * ( dist_edge[j+(i+1)*_x_cells] + dist_edge[j+(i-1)*_x_cells] + dist_edge[(j+1)+i*_x_cells] + dist_edge[(j-1)+i*_x_cells] );
+                  }
+                  if (dist_edge[j+i*_x_cells] == 0 && dist_edge[j+(i+1)*_x_cells] > 0 && dist_edge[j+(i-1)*_x_cells] > 0){
+                      dist_edge[j+i*_x_cells] = 0.5 * ( dist_edge[j+(i+1)*_x_cells] + dist_edge[j+(i-1)*_x_cells] );
+                  }
+                  if (dist_edge[j+i*_x_cells] == 0 && dist_edge[(j+1)+i*_x_cells] > 0 && dist_edge[(j-1)+i*_x_cells] > 0 ){
+                      dist_edge[j+i*_x_cells] = 0.5 * ( dist_edge[(j+1)+i*_x_cells] + dist_edge[(j-1)+i*_x_cells] );
+                  }
+              }
+          }
+      }
+
+      //3. Find Damping Matrix using Distance Info
+      for (size_t i = 0; i < _y_cells; i++) {
+            for (size_t j = 0; j < _x_cells; j++) {
+                newdampMat[j+i*_x_cells] = 1.0 * exp(-dist_edge[j+i*_x_cells]/Ds); //By defect it will be 1 if D = 0
+                ////Debugging print damp matrix
+                ////cout << "Damp Matrix value at pos : " << i << " , " << j << " --> " << newdampMat[j+i*_x_cells] << endl;
+                ////cout << "Dist edge value at pos : " << i << " , " << j << " --> " << dist_edge[j+i*_x_cells] << endl;
+            }
+        }
+      
+      _dampMat = newdampMat;
+      
+     // cout << "Segments #: " << clusterFloes.size() << endl;
+     // //Debugging print cluster floes:
+     // for (size_t i = 0; i < clusterFloes.size(); i++){
+     //     cout << "Cluster segment number: " << i << endl;
+     //     cout << "Included floes #: " << clusterFloes[i].size() <<endl;
+     //     for (size_t j = 0; j < clusterFloes[i].size(); j++){
+     //         cout << j << " , " << clusterFloes[i][j] << endl;
+     //     }
+     // }
+      //cout << "End Debugging print" << endl;
+      //exit(1); //Leave for debugging
+      return y_front;
+  }
+  
+
+  void changeDamp(bool & valueIn){
+      _ice_damp = valueIn;
+  }
+  
+    void changedampMat (vector<double> & newdampMat)
+    {
+        _dampMat = newdampMat;
+    }
+    
+    vector<double> getDampMat(){
+        return _dampMat;
+    }
+    
+    //END DAMPING FUNCTIONS
+    
+    void initBondNumbers(){
+        _ntension = 0;
+        _nshear = 0;
+    }
+    
+    size_t getntension(){
+        return _ntension;
+    }
+    
+    size_t getnshear(){
+        return _nshear;
+    }
+    
+    void changeCurrFactor(double & newval){
+        _curr_factor = newval;
+    }
+  
+  
+  
+  
 private:
-    vector<Grain2d>   	   	_grains;				// vector of grain objects
+    vector<Grain2d>         _grains;        // vector of grain objects
 
     vector<Grain2d>         _grainsWall;                // vector of grain objects that simulate land BCs, unmovable, unmutable only constrain grains
 
-	vector<Grain2d>     	_wallBottomGrains;		// vector of wall bottom grains
+  vector<Grain2d>       _wallBottomGrains;    // vector of wall bottom grains
     vector<Wall2d>          _walls;
-    Vector2d 		        _offset;				// offset (longit. dim) of the periodic cell
-    double 				 	_dt;					// time increment
-    double 			 	 	_gDamping;				// global damping
+    Vector2d            _offset;        // offset (longit. dim) of the periodic cell
+    double          _dt;          // time increment
+    double          _gDamping;        // global damping
     size_t                  _stepup;  //Get time step for time dependent processes
     double                  _slopedir; //Slope for sinusoidal variations (simple)
     double                  _flowangle; //Angle for moving grains
+    double                  _flowspeed; //Just speed
     double                  _flowforce;  //Force for moving grains
-	GrainState2d		 	_globalGrainState;		// grain state of entire assembly
-	size_t 					 _ngrains;				// number of grains 
+  GrainState2d      _globalGrainState;    // grain state of entire assembly
+  size_t           _ngrains;        // number of grains 
     size_t                  _ngrainsWall;           // number of LAND grains   
     size_t                  _nwalls;
     FracProps2D             _fracProps;
@@ -6100,6 +7099,14 @@ private:
     Vector2d                _loadvelD;  //Load velocity for external load app. //Down velocity control
     
     bool                    _only_dem; //Flip for only DEM
+    
+    bool                    _ice_damp; //Flip for ice damping
+    vector<double>          _dampMat;  //Ocean Damping grid
+    
+    size_t                  _ntension; //Number of bonds broken by tension
+    size_t                  _nshear; //Number of bonds broken by shear
+    
+    double                  _curr_factor; //Adjust more easily ocean velocity
 };
 
 #endif /* World2d_H_ */
