@@ -1,4 +1,4 @@
-# LSICE
+# LS-ICE
 Level Set Discrete Element Method for Sea Ice
 
 LS-ICE Instructions
